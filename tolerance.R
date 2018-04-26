@@ -1,10 +1,8 @@
-library(parallel)
-
-prob.beta <- function(m, n, k, V.df, Y.df, pow, cons) {
+prob.beta <- function(m, n, k, V.a, V.b, Y.a, Y.b, pow, cons, alternative = '2-sided') {
 
 	#V <- matrix(rchisq(m * n, V.df), nrow = m, ncol = n) 
 
-	V <- matrix(rchisq(m * n, V.df), nrow = m, ncol = n) / 2
+	V <- matrix(rgamma(m * n, shape = V.a, scale = V.b), nrow = m, ncol = n)
 
 	X <- V^(pow)
 	
@@ -20,10 +18,17 @@ prob.beta <- function(m, n, k, V.df, Y.df, pow, cons) {
 	  UL, 
 	  1, 
 	  function(x) {
-	    Y <- rchisq(k, Y.df) / 2
+	    Y <- rgamma(k, shape = Y.a, scale = Y.b)
 	    Y <- Y^(pow)
-	    mean(x[1] < Y & Y < x[2])
 	    
+	    if (alternative == '2-sided') {
+	    	mean(x[1] < Y & Y < x[2])
+	    } else if (alternative == 'upper') {
+	    	mean(Y < x[2])
+	    } else if (alternative == 'lower') {
+	    	mean(x[1] < Y)
+	    }
+
 	  }
 	)
 	
@@ -34,12 +39,12 @@ prob.beta <- function(m, n, k, V.df, Y.df, pow, cons) {
 #a <- prob.beta(m1, n1, k, V.df1, Y.df1, pow1, 14.87) 
 
 
-prob.alpha <- function(h, m, n, k, V.df, Y.df = V.df, pow, cons, beta) {
+prob.alpha <- function(h, m, n, k, V.a, V.b, Y.a = V.a, Y.b = V.b, pow, cons, beta, alternative = '2-sided') {
 
 	p.vec <- unlist(
 				lapply(
 					1:h, 
-					function(x) prob.beta(m, n, k, V.df, Y.df, pow, cons)
+					function(x) prob.beta(m, n, k, V.a, V.b, Y.a, Y.b, pow, cons, alternative = alternative)
 				)
 			)
 	
@@ -51,153 +56,105 @@ prob.alpha <- function(h, m, n, k, V.df, Y.df = V.df, pow, cons, beta) {
   
 }
 
-
-
-################################################################
-# setting
-################################################################
-
-h <- 1000000
-k <- 100
-m <- 100
-n <- 3
-df.seq <- c(1, 3, 6, 18)
-beta <- 0.9
-cons <- 5.788
-
-prob.alpha <- Vectorize(prob.alpha, vectorize.args = 'V.df')
-
-prob.alpha(h = h, m = m, n = n, k = k, V.df = df.seq, pow = 1/3, cons = cons, beta = beta)
-
-
-
-
-
-
-
+prob.alpha <- Vectorize(prob.alpha, vectorize.args = c('V.a', 'V.b', 'Y.a', 'Y.b'))
 
 ################################################################
 # setting
 ################################################################
-# setting cores
-#cores <- detectCores() - 1
+# repeatation
+rp <- 1000
 
-# sample size for Y
-#k <- 100
+# Monte Carlo simulation
+h <- 1000 # number of simulating beta
+m <- 100 # number of simulating blocks
+k <- 100 # number of simulating Y
+
+# The first plot
+n1 <- 3 #block size
+V.a1 <- 1 #shape parameter for gamma distribution for V
+V.b1 <- 2 #scale parameter for gamma distribution for V
+Y.a1 <- V.a1 #shape parameter for gamma distribution for Y
+Y.b1 <- V.b1 #scale parameter for gamma distribution for Y
+beta1 <- 0.9
+cons1 <- 5.788
+
+alternative1 = '2-sided' # or 'upper' or 'lower'
 
 # The second plot
-#h1 <- 100
-#m1 <- 100
-#n1 <- 3
-#V.df1 <- 3
-#Y.df1 <- V.df1
-#pow1 <- 1/3
-#cons1 <- 14.87
-#beta1 <- 0.8
+n2 <- 3 #block size
+V.a2 <- 1 #shape parameter for gamma distribution for V 
+V.b2 <- 2 #scale parameter for gamma distribution for V
+Y.a2 <- V.a2 #shape parameter for gamma distribution for Y
+Y.b2 <- V.b2 #scale parameter for gamma distribution for Y
+beta2 <- 0.9
+cons2 <- 5.788
 
-# The second plot
-#h2 <- 100
-#m2 <- 100
-#n2 <- 3
-#V.df2 <- 10
-#Y.df2 <- V.df2
-#pow2 <- 1/3
-#cons2 <- 14.87
-#beta2 <- 0.8
-
-# sample sizes of empirical distributions for histograms
-#rp <- 1000
+alternative2 = '2-sided' # or 'upper' or 'lower'
 
 #define the range of y-axis the plots (default is between 0 and 100)
-#y.min = 0
-#y.max = 100
+y.min = 0
+y.max = 100
 
 #define the range of bins for x-axis (default is between 0.85 and 1 with 0.01 step)
-#bins <- seq(0.85, 1, 0.01)
-
+bins <- seq(0.85, 1, 0.01)
 
 ################################################################
 #run two empirical distributions
 ################################################################
-#
-#start.time <- Sys.time()
-#
-#cl <- makeCluster(cores)
-#
-#clusterExport(cl, c('prob.beta', 'prob.alpha', 'k', 'h1', 'm1', 'n1',
-#	'V.df1', 'Y.df1', 'pow1', 'cons1', 'beta1', 'h2', 'm2', 'n2',
-#	'V.df2', 'Y.df2', 'pow2', 'cons2', 'beta2'
-#))
-#
-#
-#res1 <- unlist(
-#			parLapply(
-#				cl, 
-#				1:rp,
-#				function(x) {
-#					prob.alpha(h = h1, m = m1, n = n1, k = k, 
-#						V.df = V.df1, Y.df = Y.df1, pow = pow1, cons = cons1, beta = beta1)
-#				}
-#			)
-#		)
-#
-##res1 <- rep(NA, rp)
-##
-##for (i in 1:rp){
-##  
-##  res1[i] <- prob.alpha(h = h1, m = m1, n = n1, k = k, 
-##  		V.df = V.df1, Y.df = Y.df1, pow = pow1, cons = cons1, beta = beta1)
-##  
-##}
-#
-#res2 <- unlist(
-#			parLapply(
-#				cl, 
-#				1:rp,
-#				function(x) {
-#					prob.alpha(h = h2, m = m2, n = n2, k = k, 
-#						V.df = V.df2, Y.df = Y.df2, pow = pow2, cons = cons2, beta = beta2)
-#				}
-#			)
-#		)
-#
-#stopCluster(cl)
-#
-#end.time <- Sys.time()
-#
-#proc.time <- end.time - start.time
-#
+
+result <- matrix(NA, nrow = rp, ncol = 2)
+V.a <- c(V.a1, V.a2)
+V.b <- c(V.b1, V.b2)
+Y.a <- c(Y.a1, Y.a2)
+Y.b <- c(Y.b1, Y.b2)
+
+start <- Sys.time()
+
+for (ii in 1:rp){
+
+	result[ii, ] <- prob.alpha(h = h, m = m, n = n1, k = k, 
+		V.a = V.a, V.b = V.b, Y.a = Y.a, Y.b = Y.b, pow = 1/3, cons = cons1, 
+		beta = beta1, alternative = alternative1)
+
+}
+
+end <- Sys.time()
+
+end - start
+
 #################################################################
 ##run histograms
 #################################################################
-#
-##statistics for the first empirical distribution
-#mean(res1)
-#sd(res1)
-#
-##statistics for the second empirical distribution
-#mean(res2)
-#sd(res2)
-#
-##make the side-by-side plots 
-#par(mfrow = c(1, 2))
-#hist(res1, breaks = bins, freq = FALSE, ylim = c(y.min, y.max))
-#text(median(bins), 80, paste('mean = ', round(mean(res1), 4), sep = ''))
-#text(median(bins), 70, paste('sd = ', round(sd(res1), 4), sep = ''))
-#text(median(bins), 60, paste('n = ', n1, sep = ''))
-#text(median(bins), 60, paste('df = ', V.df1, sep = ''))
-#
-#hist(res2, breaks = bins, freq = FALSE, ylim = c(y.min, y.max))
-#text(median(bins), 80, paste('mean = ', round(mean(res2), 4), sep = ''))
-#text(median(bins), 70, paste('sd = ', round(sd(res2), 4), sep = ''))
-#text(median(bins), 60, paste('n = ', n2, sep = ''))
-#text(median(bins), 60, paste('df = ', Y.df1, sep = ''))
-#
-#
-##make the boxplot 
-#par(mfrow = c(1, 1))
-#res1 <- cbind(res1, 1)
-#res2 <- cbind(res2, 2)
-#res <- as.data.frame(rbind(res1, res2))
-#names(res) <- c('res', 'group')
-#boxplot(res ~ group, data = res, names=c("res1","res2"))
+
+#statistics for the first empirical distribution
+mean(result1)
+sd(result1)
+
+#statistics for the second empirical distribution
+mean(result2)
+sd(result2)
+
+#make the side-by-side plots 
+par(mfrow = c(1, 2))
+hist(result1, breaks = bins, freq = FALSE, ylim = c(y.min, y.max))
+text(median(bins), 100, paste('mean = ', round(mean(result1), 4), sep = ''))
+text(median(bins), 90, paste('sd = ', round(sd(result1), 4), sep = ''))
+text(median(bins), 80, paste('n = ', n1, sep = ''))
+text(median(bins), 70, paste('df = ', V.a1, sep = ''))
+text(median(bins), 60, paste('df = ', V.b1, sep = ''))
+
+hist(result2, breaks = bins, freq = FALSE, ylim = c(y.min, y.max))
+text(median(bins), 100, paste('mean = ', round(mean(result2), 4), sep = ''))
+text(median(bins), 90, paste('sd = ', round(sd(result2), 4), sep = ''))
+text(median(bins), 80, paste('n = ', n2, sep = ''))
+text(median(bins), 70, paste('df = ', Y.a2, sep = ''))
+text(median(bins), 60, paste('df = ', Y.b2, sep = ''))
+
+
+#make the boxplot 
+par(mfrow = c(1, 1))
+result1 <- cbind(result1, 1)
+result2 <- cbind(result2, 2)
+result <- as.data.frame(rbind(result1, result2))
+names(result) <- c('result', 'group')
+boxplot(result ~ group, data = result, names=c("res1","result2"))
