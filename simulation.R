@@ -10,27 +10,32 @@ require(parallel)
 
 
 
-gamma.sim <- function(L, U, alpha, m = 20, n = 5, tau = 1, sim.alpha = 1000, sim.gamma = 1000, core = detectCores() - 1) {
+gamma.sim <- function(L, U, alpha, m = 20, n = 5, tau = 1, sim = 1000, sim.alpha = 1000, sim.gamma = 1000, core = detectCores() - 1) {
 
-	gamma.f <- function(L, U, alpha, m = 20, n = 5, tau = 1, sim.alpha = 1000){	
+	gamma.f <- function(L, U, alpha, m = 20, n = 5, tau = 1, sim.alpha = 1000, sim.gamma = 1000){	
 																			#Main computational function of calculating gamma with parallel technique
 																			#L and U are lower and upper tolerance factors, respectively
 																			#m and n are the number of subgroups and the subgroup size
 																			#tau is the factor of variance
 																			#sim.alpha is the number of simulations of non-signal events
-	                                                                        #
-		gamma <- sum(unlist(lapply(                                         #simulate gamma
-				1:sim.alpha,                                                #
-				function(x) {                                               #
+	                                                                        #							
+		X <- matrix(rnorm(m * n), nrow = m, ncol = n)   					#simulate X following the standard normal distribution
+		S2 <- diag(var(t(X)))                                   			#calculate the subgroups' variances
+		S2p <- mean(S2)                                         			#calculate the mean of variances																			
 																			#
-					Y <- matrix(rnorm(m * n), nrow = m, ncol = n) * tau     #simulate X following the standard normal distribution
-					S2 <- diag(var(t(Y)))                                   #calculate the subgroups' variances
-					S2p <- mean(S2)                                         #calculate the mean of variances
-																			#
-					sum(L * S2p <= S2 & S2 <= U * S2p) / m >= 1 - alpha     #calcualte the probability of non-signal event
+		gamma <- mean(unlist(lapply(
+					1:sim.gamma,
+					function(x) {
+			
+						Y <- matrix(rnorm(sim.alpha * n), nrow = sim.alpha, ncol = n) * tau													
+						S2.samp <- 	diag(var(t(Y)))  														
+						gamma <- mean(L * S2p <= S2.samp & S2.samp <= U * S2p) >= 1 - alpha
+						cat(gamma, '\n')
+						return(gamma)
+					}
+				)))
+																			#calcualte the probability of non-signal event
 																			#and compare it with 1 - alpha
-				}                                                           #
-			))) / sim.alpha                                                 #
                                                                             #
 		return(gamma)                                                       #
                                                                             #
@@ -44,9 +49,10 @@ gamma.sim <- function(L, U, alpha, m = 20, n = 5, tau = 1, sim.alpha = 1000, sim
 																			#
 	gamma.vec <- unlist(parLapplyLB(										#parallelly calcualte gamma
 					cl,                                                     #specify cluster
-					1:sim.gamma,                                            #sequentially input the computational process
+					1:sim,                                            #sequentially input the computational process
 					function(X) {                                           #
-						gamma.f(L, U, alpha, m, n, tau, sim.alpha)          #main function to calculate gamma
+						gamma.f(L, U, alpha, m, n, tau, sim.alpha, sim.gamma)
+																			#main function to calculate gamma
 					}                                                       #
 				))                                                          #
 	                                                                        #
@@ -62,92 +68,31 @@ gamma.sim <- function(L, U, alpha, m = 20, n = 5, tau = 1, sim.alpha = 1000, sim
 
 }
 
-#Exact, gamma = 0.9, alpha = 0.1, L = 0.4226, U = 1.7983
-
-Ex.gamma1 <- gamma.sim(L = 0.4226, U = 1.7983, alpha = 0.1, m = 20, n = 14)
+#Exact, gamma = 0.9, alpha = 0.1, L = 0.1581, U = 2.4973, m = 50, n = 5
+Ex.gamma1 <- gamma.sim(L = 0.1581, U = 2.4973, alpha = 0.1, m = 50, n = 5, sim = 100, sim.alpha = 100, sim.gamma = 100)
 Ex.gamma1
 
 #$gamma.mean
-#[1] 0.849568
-#
+#[1] 0.7707
+
 #$gamma.sd
-#[1] 0.01152277
-#
-#$gamma.percentile
-#     0%      1%      5%     10%     20%     25%     50%     75%     80%     90%     95%     99%    100% 
-#0.81500 0.82300 0.83000 0.83500 0.84000 0.84200 0.84950 0.85700 0.85900 0.86410 0.86900 0.87501 0.88600 
+#[1] 0.1401605
 
-#Exact, gamma = 0.9, alpha = 0.05, L = 0.3533, U = 2.0014
-
-Ex.gamma2 <- gamma.sim(L = 0.3533, U = 2.0014, alpha = 0.05, m = 20, n = 14)
-Ex.gamma2
-
-#$gamma.mean
-#[1] 0.882606
-#
-#$gamma.sd
-#[1] 0.01027026
-#
 #$gamma.percentile
 #    0%     1%     5%    10%    20%    25%    50%    75%    80%    90%    95%    99%   100% 
-#0.8560 0.8600 0.8650 0.8689 0.8740 0.8760 0.8830 0.8900 0.8910 0.8960 0.8990 0.9060 0.9160 
+#0.2800 0.3097 0.4695 0.5980 0.6980 0.7075 0.8100 0.8700 0.8820 0.9000 0.9200 0.9302 0.9500 
 
-#Wilson-Hilferty, gamma = 0.9, alpha = 0.1, L = 0.4236, U = 1.7958
-
-WH.gamma1 <- gamma.sim(L = 0.4236, U = 1.7958, alpha = 0.1, m = 20, n = 14)
+#WH, gamma = 0.9, alpha = 0.1, L = 0.1562, U = 2.5102, m = 50, n = 5
+WH.gamma1 <- gamma.sim(L = 0.1562, U = 2.5102, alpha = 0.1, m = 50, n = 5, sim = 100, sim.alpha = 100, sim.gamma = 100)
 WH.gamma1
 
 #$gamma.mean
-#[1] 0.845274
+#[1] 0.7597
 #
 #$gamma.sd
-#[1] 0.01116779
-#
-#$gamma.percentile
-#     0%      1%      5%     10%     20%     25%     50%     75%     80%     90%     95%     99%    100% 
-#0.81300 0.81999 0.82700 0.83100 0.83600 0.83800 0.84500 0.85300 0.85500 0.85900 0.86300 0.87100 0.88300 
-
-#Wilson-Hilferty, gamma = 0.9, alpha = 0.05, L = 0.3536, U = 2.0003
-
-WH.gamma2 <- gamma.sim(L = 0.3536, U = 2.0003, alpha = 0.05, m = 20, n = 14)
-WH.gamma2
-
-#$gamma.mean
-#[1] 0.881458
-#
-#$gamma.sd
-#[1] 0.0103514
+#[1] 0.1291969
 #
 #$gamma.percentile
 #    0%     1%     5%    10%    20%    25%    50%    75%    80%    90%    95%    99%   100% 
-#0.8480 0.8580 0.8640 0.8680 0.8730 0.8750 0.8820 0.8890 0.8902 0.8950 0.8980 0.9050 0.9160 
+#0.2700 0.3690 0.5170 0.6190 0.6780 0.6975 0.7900 0.8600 0.8700 0.8900 0.9100 0.9301 0.9400 
 
-#Normal-Based, gamma = 0.9, alpha = 0.1, L = 0.4174, U = 1.9108
-
-NB.gamma1 <- gamma.sim(L = 0.4174, U = 1.9108, alpha = 0.1, m = 20, n = 14)
-NB.gamma1
-
-#$gamma.mean
-#[1] 0.90897
-#
-#$gamma.sd
-#[1] 0.008733234
-#
-#$gamma.percentile
-#   0%    1%    5%   10%   20%   25%   50%   75%   80%   90%   95%   99%  100% 
-#0.879 0.889 0.895 0.898 0.902 0.903 0.909 0.915 0.917 0.921 0.923 0.930 0.935 
-
-#Normal-Based, gamma = 0.9, alpha = 0.05, L = 0.3433, U = 2.1368
-
-NB.gamma2 <- gamma.sim(L = 0.3433, U = 2.1368, alpha = 0.05, m = 20, n = 14)
-NB.gamma2
-
-#$gamma.mean
-#[1] 0.931631
-#
-#$gamma.sd
-#[1] 0.007682699
-#
-#$gamma.percentile
-#   0%    1%    5%   10%   20%   25%   50%   75%   80%   90%   95%   99%  100% 
-#0.909 0.914 0.919 0.922 0.925 0.926 0.932 0.937 0.938 0.942 0.944 0.949 0.954 
