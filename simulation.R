@@ -30,7 +30,7 @@ gamma.sim <- function(L, U, alpha, m = 20, n = 5, tau = 1, sim = 1000, sim.alpha
 						Y <- matrix(rnorm(sim.alpha * n), nrow = sim.alpha, ncol = n) * tau													
 						S2.samp <- 	diag(var(t(Y)))  														
 						gamma <- mean(L * S2p <= S2.samp & S2.samp <= U * S2p) >= 1 - alpha
-						cat(gamma, '\n')
+						#cat(gamma, '\n')
 						return(gamma)
 					}
 				)))
@@ -68,31 +68,33 @@ gamma.sim <- function(L, U, alpha, m = 20, n = 5, tau = 1, sim = 1000, sim.alpha
 
 }
 
-#Exact, gamma = 0.9, alpha = 0.1, L = 0.1581, U = 2.4973, m = 50, n = 5
-Ex.gamma1 <- gamma.sim(L = 0.1581, U = 2.4973, alpha = 0.1, m = 50, n = 5, sim = 100, sim.alpha = 100, sim.gamma = 100)
+#Exact
+Ex.gamma1 <- gamma.sim(L = 0.4226, U = 1.7983, alpha = 0.1, m = 20, n = 14, sim = 100, sim.alpha = 100, sim.gamma = 100, core = 3)
 Ex.gamma1
 
-#$gamma.mean
-#[1] 0.7707
+Ex.gamma2 <- gamma.sim(L = 0.4226, U = 1.7983, alpha = 0.1, m = 20, n = 14, sim = 1000, sim.alpha = 100, sim.gamma = 100, core = 3)
+Ex.gamma2
 
-#$gamma.sd
-#[1] 0.1401605
+Ex.gamma3 <- gamma.sim(L = 0.4226, U = 1.7983, alpha = 0.1, m = 20, n = 14, sim = 10000, sim.alpha = 100, sim.gamma = 100, core = 3)
+Ex.gamma3
 
-#$gamma.percentile
-#    0%     1%     5%    10%    20%    25%    50%    75%    80%    90%    95%    99%   100% 
-#0.2800 0.3097 0.4695 0.5980 0.6980 0.7075 0.8100 0.8700 0.8820 0.9000 0.9200 0.9302 0.9500 
 
-#WH, gamma = 0.9, alpha = 0.1, L = 0.1562, U = 2.5102, m = 50, n = 5
-WH.gamma1 <- gamma.sim(L = 0.1562, U = 2.5102, alpha = 0.1, m = 50, n = 5, sim = 100, sim.alpha = 100, sim.gamma = 100)
+#WH
+WH.gamma1 <- gamma.sim(L = 0.4236, U = 1.7958, alpha = 0.1, m = 20, n = 14, sim = 100, sim.alpha = 100, sim.gamma = 100, core = 3)
 WH.gamma1
 
-#$gamma.mean
-#[1] 0.7597
-#
-#$gamma.sd
-#[1] 0.1291969
-#
-#$gamma.percentile
-#    0%     1%     5%    10%    20%    25%    50%    75%    80%    90%    95%    99%   100% 
-#0.2700 0.3690 0.5170 0.6190 0.6780 0.6975 0.7900 0.8600 0.8700 0.8900 0.9100 0.9301 0.9400 
+WH.gamma2 <- gamma.sim(L = 0.4236, U = 1.7958, alpha = 0.1, m = 20, n = 14, sim = 1000, sim.alpha = 100, sim.gamma = 100, core = 3)
+WH.gamma2
 
+WH.gamma3 <- gamma.sim(L = 0.4236, U = 1.7958, alpha = 0.1, m = 20, n = 14, sim = 10000, sim.alpha = 100, sim.gamma = 100, core = 3)
+WH.gamma3
+
+#NB
+NB.gamma1 <- gamma.sim(L = 0.4174, U = 1.9108, alpha = 0.1, m = 20, n = 14, sim = 100, sim.alpha = 100, sim.gamma = 100, core = 3)
+NB.gamma1
+
+NB.gamma2 <- gamma.sim(L = 0.4174, U = 1.9108, alpha = 0.1, m = 20, n = 14, sim = 1000, sim.alpha = 100, sim.gamma = 100, core = 3)
+NB.gamma2
+
+NB.gamma3 <- gamma.sim(L = 0.4174, U = 1.9108, alpha = 0.1, m = 20, n = 14, sim = 10000, sim.alpha = 100, sim.gamma = 100, core = 3)
+NB.gamma3
