@@ -10,9 +10,9 @@ require(parallel)
 
 
 
-gamma.sim <- function(L, U, alpha, m = 20, n = 5, tau = 1, sim = 1000, sim.alpha = 1000, sim.gamma = 1000, core = detectCores() - 1) {
+gamma.sim <- function(L = NULL, U = NULL, alpha = 0.1, target.gamma = 0.9, m = 20, n = 5, tau = 1, sim = 1000, sim.alpha = 1000, sim.gamma = 1000, option = 'WH', core = 2) {
 
-	gamma.f <- function(L, U, alpha, m = 20, n = 5, tau = 1, sim.alpha = 1000, sim.gamma = 1000){	
+	gamma.f <- function(L = NULL, U = NULL, alpha = 0.1, target.gamma = 0.9, m = 20, n = 5, tau = 1, sim.alpha = 1000, sim.gamma = 1000, option = 'WH'){	
 																			#Main computational function of calculating gamma with parallel technique
 																			#L and U are lower and upper tolerance factors, respectively
 																			#m and n are the number of subgroups and the subgroup size
@@ -21,8 +21,19 @@ gamma.sim <- function(L, U, alpha, m = 20, n = 5, tau = 1, sim = 1000, sim.alpha
 	                                                                        #							
 		X <- matrix(rnorm(m * n), nrow = m, ncol = n)   					#simulate X following the standard normal distribution
 		S2 <- diag(var(t(X)))                                   			#calculate the subgroups' variances
-		S2p <- mean(S2)                                         			#calculate the mean of variances																			
+		S2p <- mean(S2)                                         			#calculate the mean of  variances																			
 																			#
+																			
+		if (option == 'NB') {
+			cc <- sqrt((m - 1) * qchisq(1 - alpha, 1, 1 / m) / qchisq(1 - target.gamma, m - 1))
+		
+			S2.LNB <- (mean(S2^(1 / 3)) - cc * 1 / sqrt(m - 1) * sqrt( sum((S2^(1 / 3) - mean(S2^(1 / 3)))^2 ))  ) ^ 3
+			L <- S2.LNB / S2p
+			
+			S2.UNB <- (mean(S2^(1 / 3)) + cc * 1 / sqrt(m - 1) * sqrt( sum((S2^(1 / 3) - mean(S2^(1 / 3)))^2 ))  ) ^ 3
+			U <- S2.UNB / S2p
+		}
+																			
 		gamma <- mean(unlist(lapply(
 					1:sim.gamma,
 					function(x) {
@@ -43,7 +54,7 @@ gamma.sim <- function(L, U, alpha, m = 20, n = 5, tau = 1, sim = 1000, sim.alpha
                                                                             #
 	cl <- makeCluster(core)                                                 #make a cluster for parallel
 																			#
-	clusterExport(cl, c('L', 'U', 'alpha', 'm', 'n', 'tau', 'sim.alpha', 'gamma.f'), envir = environment())
+	clusterExport(cl, c('L', 'U', 'alpha', 'target.gamma', 'm', 'n', 'tau', 'option', 'sim.alpha', 'gamma.f'), envir = environment())
 																			#
 																			#load variables into the cluster
 																			#
@@ -51,7 +62,7 @@ gamma.sim <- function(L, U, alpha, m = 20, n = 5, tau = 1, sim = 1000, sim.alpha
 					cl,                                                     #specify cluster
 					1:sim,                                            #sequentially input the computational process
 					function(X) {                                           #
-						gamma.f(L, U, alpha, m, n, tau, sim.alpha, sim.gamma)
+						gamma.f(L, U, alpha, target.gamma, m, n, tau, sim.alpha, sim.gamma, option)
 																			#main function to calculate gamma
 					}                                                       #
 				))                                                          #
@@ -69,12 +80,14 @@ gamma.sim <- function(L, U, alpha, m = 20, n = 5, tau = 1, sim = 1000, sim.alpha
 
 }
 
-gamma.sim.vec <- function(L, U, alpha, m = 20, n = 5, tau = 1, sim = 1000, sim.alpha = 1000, sim.gamma = 1000, core = detectCores() - 1) {
-    result <- gamma.sim(L, U, alpha, m, n, tau, sim, sim.alpha, sim.gamma, core)$gamma.mean
+#debug(gamma.sim)
+
+gamma.sim.vec <- function(L = NULL, U = NULL, alpha = 0.1, target.gamma = 0.9, m = 20, n = 5, tau = 1, sim = 1000, sim.alpha = 1000, sim.gamma = 1000, option = 'WH', core = 2) {
+    result <- gamma.sim(L, U, alpha, target.gamma, m, n, tau, sim, sim.alpha, sim.gamma, option, core)$gamma.mean
     return(result)
 }
 
-gamma.sim.vec <- Vectorize(gamma.sim.vec, vectorize.args = c('L', 'U', 'alpha', 'm', 'n', 'tau', 'sim', 'sim.alpha', 'sim.gamma'))
+gamma.sim.vec <- Vectorize(gamma.sim.vec, vectorize.args = c('L', 'U', 'alpha', 'target.gamma', 'm', 'n', 'tau', 'sim', 'sim.alpha', 'sim.gamma'))
                                                                             #Vectorizing the simulation of gamma
                                                                             #result only contains the mean of simulation of gamma
 
@@ -88,14 +101,31 @@ gamma.sim.vec <- Vectorize(gamma.sim.vec, vectorize.args = c('L', 'U', 'alpha', 
 #Ex.gamma1
 
 #Vecotorized Example
-#gamma.sim.vec(
-#    L = c(0.4226, 0.4236, 0.4174), 
-#    U = c(1.7983, 1.7958, 1.9108), 
-#    alpha = 0.1, 
-#    m = 20, 
-#    n = 14, 
-#    tau = 1, 
-#    sim = 100, 
-#    sim.alpha = 100, 
-#    sim.gamma = 100
-#) 
+gamma.sim.vec(
+    L = c(.1193, .1196), 
+    U = c(2.8018, 2.7990), 
+    alpha = 0.1, 
+	target.gamma = 0.9,
+    m = 10, 
+    n = 5, 
+    tau = 1, 
+    sim = 100, 
+    sim.alpha = 100, 
+    sim.gamma = 100,
+	core = 3
+) 
+
+gamma.sim.vec(
+    L = 0, 
+    U = 0, 
+    alpha = 0.1, 
+	target.gamma = 0.9,
+    m = 10, 
+    n = 5, 
+    tau = 1, 
+    sim = 100, 
+    sim.alpha = 10, 
+    sim.gamma = 100,
+	option = 'NB',
+	core = 3
+) 
