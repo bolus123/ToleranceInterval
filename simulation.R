@@ -101,31 +101,31 @@ gamma.sim.vec <- Vectorize(gamma.sim.vec, vectorize.args = c('L', 'U', 'alpha', 
 #Ex.gamma1
 
 #Vecotorized Example
-gamma.sim.vec(
-    L = c(.1193, .1196), 
-    U = c(2.8018, 2.7990), 
-    alpha = 0.1, 
-	target.gamma = 0.9,
-    m = 10, 
-    n = 5, 
-    tau = 1, 
-    sim = 100, 
-    sim.alpha = 100, 
-    sim.gamma = 100,
-	core = 3
-) 
-
-gamma.sim.vec(
-    L = 0, 
-    U = 0, 
-    alpha = 0.1, 
-	target.gamma = 0.9,
-    m = 10, 
-    n = 5, 
-    tau = 1, 
-    sim = 100, 
-    sim.alpha = 10, 
-    sim.gamma = 100,
-	option = 'NB',
-	core = 3
-) 
+#gamma.sim.vec(
+#    L = c(.1100, .1056), 
+#    U = c(2.8904, 2.9351), 
+#    alpha = 0.05, 
+#	target.gamma = 0.9,
+#    m = 100, 
+#    n = 5, 
+#    tau = 1, 
+#    sim = 100, 
+#    sim.alpha = 100, 
+#    sim.gamma = 100,
+#	core = 3
+#) 
+#
+#gamma.sim.vec(
+#    L = 0, 
+#    U = 0, 
+#    alpha = 0.05, 
+#	target.gamma = 0.9,
+#    m = 100, 
+#    n = 5, 
+#    tau = 1, 
+#    sim = 100, 
+#    sim.alpha = 100, 
+#    sim.gamma = 100,
+#	option = 'NB',
+#	core = 3
+#) 
