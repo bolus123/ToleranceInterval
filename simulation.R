@@ -61,40 +61,41 @@ gamma.sim <- function(L, U, alpha, m = 20, n = 5, tau = 1, sim = 1000, sim.alpha
 	result <- list(                                                         #return result including mean, standard deviation
 			gamma.mean = mean(gamma.vec), 									#and 0%, 1%, 5%, 10%, 20%, 25%, 50%, 75%, 80%, 90%,
 			gamma.sd = sd(gamma.vec), 										#95%, 99%, 100% percentiles
-			gamma.percentile = quantile(gamma.vec, c(0, 0.01, 0.05, 0.1, 0.2, 0.25, 0.5, 0.75, 0.8, 0.9, 0.95, 0.99, 1))
+			gamma.percentile = quantile(gamma.vec, c(0, 0.01, 0.05, 0.1, 0.2, 0.25, 0.5, 0.75, 0.8, 0.9, 0.95, 0.99, 1)),
+            gamma.vec = gamma.vec
 		)
 	
 	return(result)
 
 }
 
-#Exact
-Ex.gamma1 <- gamma.sim(L = 0.4226, U = 1.7983, alpha = 0.1, m = 20, n = 14, sim = 100, sim.alpha = 100, sim.gamma = 100, core = 3)
-Ex.gamma1
+gamma.sim.vec <- function(L, U, alpha, m = 20, n = 5, tau = 1, sim = 1000, sim.alpha = 1000, sim.gamma = 1000, core = detectCores() - 1) {
+    result <- gamma.sim(L, U, alpha, m, n, tau, sim, sim.alpha, sim.gamma, core)$gamma.mean
+    return(result)
+}
 
-Ex.gamma2 <- gamma.sim(L = 0.4226, U = 1.7983, alpha = 0.1, m = 20, n = 14, sim = 1000, sim.alpha = 100, sim.gamma = 100, core = 3)
-Ex.gamma2
+gamma.sim.vec <- Vectorize(gamma.sim.vec, vectorize.args = c('L', 'U', 'alpha', 'm', 'n', 'tau', 'sim', 'sim.alpha', 'sim.gamma'))
+                                                                            #Vectorizing the simulation of gamma
+                                                                            #result only contains the mean of simulation of gamma
 
-Ex.gamma3 <- gamma.sim(L = 0.4226, U = 1.7983, alpha = 0.1, m = 20, n = 14, sim = 10000, sim.alpha = 100, sim.gamma = 100, core = 3)
-Ex.gamma3
+#########################################################################################################################################################################
 
+#Example
 
-#WH
-WH.gamma1 <- gamma.sim(L = 0.4236, U = 1.7958, alpha = 0.1, m = 20, n = 14, sim = 100, sim.alpha = 100, sim.gamma = 100, core = 3)
-WH.gamma1
+#########################################################################################################################################################################
 
-WH.gamma2 <- gamma.sim(L = 0.4236, U = 1.7958, alpha = 0.1, m = 20, n = 14, sim = 1000, sim.alpha = 100, sim.gamma = 100, core = 3)
-WH.gamma2
+#Ex.gamma1 <- gamma.sim(L = 0.4226, U = 1.7983, alpha = 0.1, m = 20, n = 14, sim = 100, sim.alpha = 100, sim.gamma = 100, core = 3)
+#Ex.gamma1
 
-WH.gamma3 <- gamma.sim(L = 0.4236, U = 1.7958, alpha = 0.1, m = 20, n = 14, sim = 10000, sim.alpha = 100, sim.gamma = 100, core = 3)
-WH.gamma3
-
-#NB
-NB.gamma1 <- gamma.sim(L = 0.4174, U = 1.9108, alpha = 0.1, m = 20, n = 14, sim = 100, sim.alpha = 100, sim.gamma = 100, core = 3)
-NB.gamma1
-
-NB.gamma2 <- gamma.sim(L = 0.4174, U = 1.9108, alpha = 0.1, m = 20, n = 14, sim = 1000, sim.alpha = 100, sim.gamma = 100, core = 3)
-NB.gamma2
-
-NB.gamma3 <- gamma.sim(L = 0.4174, U = 1.9108, alpha = 0.1, m = 20, n = 14, sim = 10000, sim.alpha = 100, sim.gamma = 100, core = 3)
-NB.gamma3
+#Vecotorized Example
+#gamma.sim.vec(
+#    L = c(0.4226, 0.4236, 0.4174), 
+#    U = c(1.7983, 1.7958, 1.9108), 
+#    alpha = 0.1, 
+#    m = 20, 
+#    n = 14, 
+#    tau = 1, 
+#    sim = 100, 
+#    sim.alpha = 100, 
+#    sim.gamma = 100
+#) 
