@@ -13,16 +13,21 @@ require(parallel)
 gamma.sim <- function(L = NULL, U = NULL, alpha = 0.1, target.gamma = 0.9, m = 20, n = 5, tau = 1, sim = 1000, sim.alpha = 1000, sim.gamma = 1000, option = 'WH', core = 2) {
 
 	gamma.f <- function(L = NULL, U = NULL, alpha = 0.1, target.gamma = 0.9, m = 20, n = 5, tau = 1, sim.alpha = 1000, sim.gamma = 1000, option = 'WH'){	
-																			#Main computational function of calculating gamma with parallel technique
-																			#L and U are lower and upper tolerance factors, respectively
-																			#m and n are the number of subgroups and the subgroup size
-																			#tau is the factor of variance
-																			#sim.alpha is the number of simulations of non-signal events
-	                                                                        #							
-		X <- matrix(rnorm(m * n), nrow = m, ncol = n)   					#simulate X following the standard normal distribution
-		S2 <- diag(var(t(X)))                                   			#calculate the subgroups' variances
-		S2p <- mean(S2)                                         			#calculate the mean of  variances																			
-																			#
+	#Main computational function of calculating gamma with parallel technique
+	#L and U are lower and upper tolerance factors, respectively
+	#m and n are the number of subgroups and the subgroup size
+	#tau is the factor of variance
+	#sim.alpha is the number of simulations of non-signal events
+	#							
+	#simulate X following the standard normal distribution
+	#calculate the subgroups' variances
+	#calculate the mean of  variances																			
+	#
+		
+		X <- matrix(rnorm(m * n), nrow = m, ncol = n)
+		S2 <- diag(var(t(X)))                        
+		S2p <- mean(S2)                              
+		
 																			
 		if (option == 'NB') {
 			cc <- sqrt((m - 1) * qchisq(1 - alpha, 1, 1 / m) / qchisq(1 - target.gamma, m - 1))
@@ -33,6 +38,7 @@ gamma.sim <- function(L = NULL, U = NULL, alpha = 0.1, target.gamma = 0.9, m = 2
 			S2.UNB <- (mean(S2^(1 / 3)) + cc * 1 / sqrt(m - 1) * sqrt( sum((S2^(1 / 3) - mean(S2^(1 / 3)))^2 ))  ) ^ 3
 			U <- S2.UNB / S2p
 		}
+		#Special part for the Normal-based method. The methodology is written in Appendix B
 																			
 		gamma <- mean(unlist(lapply(
 					1:sim.gamma,
@@ -45,36 +51,47 @@ gamma.sim <- function(L = NULL, U = NULL, alpha = 0.1, target.gamma = 0.9, m = 2
 						return(gamma)
 					}
 				)))
-																			#calcualte the probability of non-signal event
-																			#and compare it with 1 - alpha
-                                                                            #
-		return(gamma)                                                       #
-                                                                            #
-	}                                                                       #
-                                                                            #
-	cl <- makeCluster(core)                                                 #make a cluster for parallel
-																			#
+				
+		#calcualte the probability of non-signal event
+		#and compare it with 1 - alpha
+                                                                           
+		return(gamma)                                                      
+                                                                           
+	}                                                                      
+                                                                           
+	cl <- makeCluster(core)                                                 
+	#make a cluster for parallel
+																			
 	clusterExport(cl, c('L', 'U', 'alpha', 'target.gamma', 'm', 'n', 'tau', 'option', 'sim.alpha', 'gamma.f'), envir = environment())
-																			#
-																			#load variables into the cluster
-																			#
-	gamma.vec <- unlist(parLapplyLB(										#parallelly calcualte gamma
-					cl,                                                     #specify cluster
-					1:sim,                                            #sequentially input the computational process
-					function(X) {                                           #
+	#load variables into the cluster
+																			
+	gamma.vec <- unlist(parLapplyLB(										
+					cl,                                                     
+					1:sim,                                            		
+					function(X) {                                           
 						gamma.f(L, U, alpha, target.gamma, m, n, tau, sim.alpha, sim.gamma, option)
-																			#main function to calculate gamma
-					}                                                       #
-				))                                                          #
-	                                                                        #
-	stopCluster(cl)                                                         #shut down cluster when the computation finished
-	                                                                        #
-	result <- list(                                                         #return result including mean, standard deviation
-			gamma.mean = mean(gamma.vec), 									#and 0%, 1%, 5%, 10%, 20%, 25%, 50%, 75%, 80%, 90%,
-			gamma.sd = sd(gamma.vec), 										#95%, 99%, 100% percentiles
+						#main function to calculate gamma
+					}                                                       
+				))                                                          
+				
+	#parallelly calcualte gamma
+	#specify cluster
+	#sequentially input the computational process
+				
+	                                                                        
+	stopCluster(cl)
+	#shut down cluster when the computation finished
+	                                                                        
+	result <- list(                                                         
+			gamma.mean = mean(gamma.vec), 									
+			gamma.sd = sd(gamma.vec), 										
 			gamma.percentile = quantile(gamma.vec, c(0, 0.01, 0.05, 0.1, 0.2, 0.25, 0.5, 0.75, 0.8, 0.9, 0.95, 0.99, 1)),
             gamma.vec = gamma.vec
 		)
+	#return result including mean, standard deviation	
+	#and 0%, 1%, 5%, 10%, 20%, 25%, 50%, 75%, 80%, 90%,
+	#95%, 99%, 100% percentiles
+	
 	
 	return(result)
 
@@ -88,8 +105,8 @@ gamma.sim.vec <- function(L = NULL, U = NULL, alpha = 0.1, target.gamma = 0.9, m
 }
 
 gamma.sim.vec <- Vectorize(gamma.sim.vec, vectorize.args = c('L', 'U', 'alpha', 'target.gamma', 'm', 'n', 'tau', 'sim', 'sim.alpha', 'sim.gamma'))
-                                                                            #Vectorizing the simulation of gamma
-                                                                            #result only contains the mean of simulation of gamma
+#Vectorizing the simulation of gamma
+#result only contains the mean of simulation of gamma
 
 #########################################################################################################################################################################
 
