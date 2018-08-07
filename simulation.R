@@ -80,7 +80,7 @@ gamma.sim <- function(L = NULL, U = NULL, alpha = 0.1, target.gamma = 0.9, m = 2
 				
 	                                                                        
 	stopCluster(cl)
-	#shut down cluster when the computation finished
+	#shut down cluster when the computation finish
 	                                                                        
 	result <- list(                                                         
 			gamma.mean = mean(gamma.vec), 									
