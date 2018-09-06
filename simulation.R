@@ -4,7 +4,7 @@
 #update: 9.6.2018
 #########################################################################################################################################################################
 
-src.code.addr <- '/home/yuhuiyao/Documents/Github/ToleranceInterval/'
+src.code.addr <- 'https://raw.githubusercontent.com/bolus123/ToleranceInterval/master/'
 
 #########################################################################################################################################################################
 
@@ -266,15 +266,15 @@ gamma.sim.vec <- Vectorize(gamma.sim.vec, vectorize.args = c('nom.alpha', 'nom.g
 
 
 sim.vec <- 1000
-#sim.alpha.vec <- c(100, 250, 500, 1000)
-sim.alpha.vec <- c(100)
+sim.alpha.vec <- c(100, 250, 500, 1000)
+#sim.alpha.vec <- c(100)
 sim.gamma.vec <- 250
 
 alpha.vec <- c(0.05, 0.1)
 gamma.vec <- c(0.9, 0.95)
 
-#m.vec <- c(10, 25, 50, 75, 100, 250)
-m.vec <- c(10, 25)
+m.vec <- c(10, 25, 50, 75, 100, 250)
+#m.vec <- c(10, 25)
 n.vec <- c(5, 10)
 
 shift.vec <- seq(-0.25, 0.25, 0.25)
@@ -367,3 +367,113 @@ result4[, mm + 1] <- gamma.sim.vec(
 ) 
 
 save(result4, file = '/home/yyao17/Documents/ToleranceInterval/simulation.result4.CE.Rdata')
+
+#########################################################################################################################################################################
+
+#simulation for EXACT
+
+#########################################################################################################################################################################
+
+
+sim.vec <- 1000
+sim.alpha.vec <- c(100, 250, 500, 1000)
+#sim.alpha.vec <- c(100)
+sim.gamma.vec <- 250
+
+alpha.vec <- c(0.05, 0.1)
+gamma.vec <- c(0.9, 0.95)
+
+m.vec <- c(10, 25, 50, 75, 100, 250)
+#m.vec <- c(10, 25)
+n.vec <- c(5, 10)
+
+shift.vec <- seq(-0.25, 0.25, 0.25)
+#shift.vec <- 0
+
+pars.mat <- expand.grid(sim.vec, sim.gamma.vec, sim.alpha.vec, alpha.vec, gamma.vec, m.vec, n.vec, shift.vec)
+
+pars.mat1 <- cbind(pars.mat, (pars.mat[, 7] - 1) / 2, 2, (pars.mat[, 7] - 1) / 2 * (1 + pars.mat[, 8]), 2)
+pars.mat2 <- cbind(pars.mat, (pars.mat[, 7] - 1) / 2, 2, (pars.mat[, 7] - 1) / 2, 2 * (1 + pars.mat[, 8]))
+
+pars.mat3 <- cbind(pars.mat, (pars.mat[, 7] - 1) / 2 * (1 + pars.mat[, 8]), 2, (pars.mat[, 7] - 1) / 2, 2)
+pars.mat4 <- cbind(pars.mat, (pars.mat[, 7] - 1) / 2, 2 * (1 + pars.mat[, 8]), (pars.mat[, 7] - 1) / 2, 2)
+
+nn <- dim(pars.mat1)[1]
+mm <- dim(pars.mat1)[2]
+
+result1 <- cbind(pars.mat1, NA)
+result2 <- cbind(pars.mat2, NA)
+result3 <- cbind(pars.mat3, NA)
+result4 <- cbind(pars.mat4, NA)
+
+result1[, mm + 1] <- gamma.sim.vec(
+				nom.alpha = pars.mat1[, 4], 
+				nom.gamma = pars.mat1[, 5], 
+				m = pars.mat1[, 6], 
+				n = pars.mat1[, 7], 
+				sim = pars.mat1[, 1], 
+				sim.alpha = pars.mat1[, 2], 
+				sim.gamma = pars.mat1[, 3], 
+			  	PH1.rgamma.shape = pars.mat1[, 9], 
+				PH1.rgamma.scale = pars.mat1[, 10], 
+				PH2.rgamma.shape = pars.mat1[, 11], 
+				PH2.rgamma.scale = pars.mat1[, 12], 
+				method.option = 'EXACT',
+				core = 6
+) 
+
+save(result1, file = '/home/yyao17/Documents/ToleranceInterval/simulation.result1.EXACT.Rdata')
+
+result2[, mm + 1] <- gamma.sim.vec(
+				nom.alpha = pars.mat2[, 4], 
+				nom.gamma = pars.mat2[, 5], 
+				m = pars.mat2[, 6], 
+				n = pars.mat2[, 7], 
+				sim = pars.mat2[, 1], 
+				sim.alpha = pars.mat2[, 2], 
+				sim.gamma = pars.mat2[, 3], 
+			  	PH1.rgamma.shape = pars.mat2[, 9], 
+				PH1.rgamma.scale = pars.mat2[, 10], 
+				PH2.rgamma.shape = pars.mat2[, 11], 
+				PH2.rgamma.scale = pars.mat2[, 12], 
+				method.option = 'EXACT',
+				core = 6
+) 
+
+save(result2, file = '/home/yyao17/Documents/ToleranceInterval/simulation.result2.EXACT.Rdata')
+
+result3[, mm + 1] <- gamma.sim.vec(
+				nom.alpha = pars.mat3[, 4], 
+				nom.gamma = pars.mat3[, 5], 
+				m = pars.mat3[, 6], 
+				n = pars.mat3[, 7], 
+				sim = pars.mat3[, 1], 
+				sim.alpha = pars.mat3[, 2], 
+				sim.gamma = pars.mat3[, 3], 
+			  	PH1.rgamma.shape = pars.mat3[, 9], 
+				PH1.rgamma.scale = pars.mat3[, 10], 
+				PH2.rgamma.shape = pars.mat3[, 11], 
+				PH2.rgamma.scale = pars.mat3[, 12], 
+				method.option = 'EXACT',
+				core = 6
+) 
+
+save(result3, file = '/home/yyao17/Documents/ToleranceInterval/simulation.result3.EXACT.Rdata')
+
+result4[, mm + 1] <- gamma.sim.vec(
+				nom.alpha = pars.mat4[, 4], 
+				nom.gamma = pars.mat4[, 5], 
+				m = pars.mat4[, 6], 
+				n = pars.mat4[, 7], 
+				sim = pars.mat4[, 1], 
+				sim.alpha = pars.mat4[, 2], 
+				sim.gamma = pars.mat4[, 3], 
+			  	PH1.rgamma.shape = pars.mat4[, 9], 
+				PH1.rgamma.scale = pars.mat4[, 10], 
+				PH2.rgamma.shape = pars.mat4[, 11], 
+				PH2.rgamma.scale = pars.mat4[, 12], 
+				method.option = 'EXACT',
+				core = 6
+) 
+
+save(result4, file = '/home/yyao17/Documents/ToleranceInterval/simulation.result4.EXACT.Rdata')
