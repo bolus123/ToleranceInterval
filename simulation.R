@@ -1,81 +1,114 @@
 #Calculating gamma with parallel technique by simulation
 #author: Yuhui Yao
-#version: 0.1
-#update: 7.24.2018
+#version: 0.9
+#update: 9.6.2018
+#########################################################################################################################################################################
+
+src.code.addr <- '/home/yuhuiyao/Documents/Github/ToleranceInterval/'
+
 #########################################################################################################################################################################
 
 require(parallel)                                                                              
 
 #########################################################################################################################################################################
 
+source(file = paste(src.code.addr, 'Exact_TI_S2_alpha_star.R', sep = ''))
+source(file = paste(src.code.addr, 'CE_Method_TI_S2.R', sep = ''))
 
+EX.find_alpha.star <- find_alpha_star
+CE.find_alpha_star <- find1_alpha_star
 
-gamma.sim <- function(L = NULL, U = NULL, alpha = 0.1, target.gamma = 0.9, m = 20, n = 5, tau = 1, sim = 1000, sim.alpha = 1000, sim.gamma = 1000, method.option = 'WH', PH2.rgamma.shape = (n - 1) / 2, PH2.rgamma.scale = 2, core = 2) {
+#########################################################################################################################################################################
 
-	gamma.f <- function(L = NULL, U = NULL, alpha = 0.1, target.gamma = 0.9, m = 20, n = 5, tau = 1, sim.alpha = 1000, sim.gamma = 1000, method.option = 'WH', PH2.rgamma.shape = (n - 1) / 2, PH2.rgamma.scale = 2){	
+gamma.sim <- function(nom.alpha = 0.1, nom.gamma = 0.9, m = 20, n = 5, sim = 1000, sim.alpha = 1000, sim.gamma = 1000, method.option = 'KMM', 
+					  PH1.rgamma.shape = (n - 1) / 2, PH1.rgamma.scale = 2, PH2.rgamma.shape = PH1.rgamma.shape, PH2.rgamma.scale = PH1.rgamma.scale, core = 2) {
+	
+	inner.loop.f <- function(L = NULL, U = NULL, x, S2, S2p, m, n, PH2.rgamma.shape, PH2.rgamma.scale, method.option = 'KMM') {
+						
+			if (method.option == 'KMM') {
+				cc <- sqrt((m - 1) * qchisq(1 - nom.alpha, 1, 1 / m) / qchisq(1 - nom.gamma, m - 1))
+
+				S2.LNB <- (mean(S2[, x]^(1 / 3)) - cc * 1 / sqrt(m - 1) * sqrt( sum((S2[, x]^(1 / 3) - mean(S2[, x]^(1 / 3)))^2 ))  ) ^ 3
+				L <- S2.LNB / S2p[x]
+
+				S2.UNB <- (mean(S2[, x]^(1 / 3)) + cc * 1 / sqrt(m - 1) * sqrt( sum((S2[, x]^(1 / 3) - mean(S2[, x]^(1 / 3)))^2 ))  ) ^ 3
+				U <- S2.UNB / S2p[x]
+			}
+			
+	
+        	S2.samp <- rgamma(sim.alpha, shape = PH2.rgamma.shape, scale = PH2.rgamma.scale) / (n - 1)
+
+			gamma <- mean(L * S2p[x] <= S2.samp & S2.samp <= U * S2p[x]) >= 1 - nom.alpha
+			return(gamma)
+		}
+		
+	inner.loop.f <- Vectorize(inner.loop.f, vectorize.args = 'x')
+		
+	gamma.f <- function(L = NULL, U = NULL, nom.alpha = 0.1, nom.gamma = 0.9, m = 20, n = 5, sim.alpha = 1000, sim.gamma = 1000, method.option = 'WH', 
+						PH1.rgamma.shape = (n - 1) / 2, PH1.rgamma.scale = 2, PH2.rgamma.shape = PH1.rgamma.shape, PH2.rgamma.scale = PH1.rgamma.scale){	
 	#Main computational function of calculating gamma with parallel technique
 	#L and U are lower and upper tolerance factors, respectively
 	#m and n are the number of subgroups and the subgroup size
-	#tau is the factor of variance
 	#sim.alpha is the number of simulations of non-signal events
 	#							
 	#simulate X following the standard normal distribution
 	#calculate the subgroups' variances
 	#calculate the mean of  variances																			
 	#
+ 
+		S2 <- matrix(rgamma(m * sim.gamma, shape = PH1.rgamma.shape, scale = PH1.rgamma.scale), nrow = m, ncol = sim.gamma) / (n - 1)
 		
-		#X <- matrix(rnorm(m * n), nrow = m, ncol = n)
-		#S2 <- diag(var(t(X)))                        
-		#S2p <- mean(S2)     
-        S2 <- rchisq(m, n - 1) / (n - 1)
-		S2p <- sum(S2) / m #rchisq(1, m * (n - 1)) / m / (n - 1)
-																			
-		if (method.option == 'NB') {
-			cc <- sqrt((m - 1) * qchisq(1 - alpha, 1, 1 / m) / qchisq(1 - target.gamma, m - 1))
-		
-			S2.LNB <- (mean(S2^(1 / 3)) - cc * 1 / sqrt(m - 1) * sqrt( sum((S2^(1 / 3) - mean(S2^(1 / 3)))^2 ))  ) ^ 3
-			L <- S2.LNB / S2p
-			
-			S2.UNB <- (mean(S2^(1 / 3)) + cc * 1 / sqrt(m - 1) * sqrt( sum((S2^(1 / 3) - mean(S2^(1 / 3)))^2 ))  ) ^ 3
-			U <- S2.UNB / S2p
-		}
-        
-		#Special part for the Normal-based method. The methodology is written in Appendix B
-																			
-		gamma <- mean(unlist(lapply(
-					1:sim.gamma,
-					function(x) {
-			
-						#Y <- matrix(rnorm(sim.alpha * n), nrow = sim.alpha, ncol = n) * tau													
-						#S2.samp <- 	diag(var(t(Y)))  
-                        S2.samp <- rgamma(sim.alpha, shape = PH2.rgamma.shape, scale = PH2.rgamma.scale) / (n - 1) #/ PH2.rgamma.shape / PH2.rgamma.scale
-                        cat(S2.samp)
+		S2p <- colMeans(S2)
 
-						gamma <- mean(L * S2p <= S2.samp & S2.samp <= U * S2p) >= 1 - alpha
-						#cat(gamma, '\n')
-						return(gamma)
-					}
-				)))
+		#Special part for the Normal-based method. The methodology is written in Appendix B
+
+		gamma.vec <- inner.loop.f(L = L, U = U, x = 1:sim.gamma, S2 = S2, S2p = S2p, m = m, n = n, PH2.rgamma.shape = PH2.rgamma.shape, PH2.rgamma.scale = PH2.rgamma.scale, method.option = method.option)
+		
+		gamma <- mean(gamma.vec)
 				
 		#calcualte the probability of non-signal event
-		#and compare it with 1 - alpha
+		#and compare it with 1 - nom.alpha
                                                                            
 		return(gamma)                                                      
                                                                            
 	}                                                                      
-                                                                           
+	
 	cl <- makeCluster(core)                                                 
 	#make a cluster for parallel
-																			
-	clusterExport(cl, c('L', 'U', 'alpha', 'target.gamma', 'm', 'n', 'tau', 'method.option', 'sim.alpha', 
-        'sim.gamma', 'gamma.f', 'PH2.rgamma.shape', 'PH2.rgamma.scale'), envir = environment())
+		
+	L <- NULL
+	U <- NULL
+											
+	if (method.option == 'EXACT'){
+			
+		limits <- EX.find_alpha.star(m = m,n = n,alpha = nom.alpha,nom_gamma = nom.gamma)
+		
+		L <- limits[2]
+		U <- limits[3]
+				
+	} else if (method.option == 'CE'){
+				
+		limits <- CE.find_alpha_star(m = m,n = n,alpha = nom.alpha, gamma = nom.gamma)
+		
+		L <- limits[2]
+		U <- limits[3]
+			
+	}
+	
+	
+	
+	clusterExport(cl, c('L', 'U', 'nom.alpha', 'nom.gamma', 'm', 'n', 'method.option', 'sim.alpha', 
+        'sim.gamma', 'gamma.f', 'inner.loop.f', 'PH1.rgamma.shape', 'PH1.rgamma.scale', 'PH2.rgamma.shape', 'PH2.rgamma.scale'), envir = environment())
+	
+	clusterExport(cl, c('secantc', 'secant', 'gamma_val', 'EX.find_alpha.star', 'secant.method', 'WH_gamma_approx', 'CE.find_alpha_star'))
+	
 	#load variables into the cluster
-																			
+	
 	gamma.vec <- unlist(parLapplyLB(										
 					cl,                                                     
 					1:sim,                                            		
 					function(X) {                                           
-						gamma.f(L, U, alpha, target.gamma, m, n, tau, sim.alpha, sim.gamma, method.option, PH2.rgamma.shape, PH2.rgamma.scale)
+						gamma.f(L, U, nom.alpha, nom.gamma, m, n, sim.alpha, sim.gamma, method.option, PH1.rgamma.shape, PH1.rgamma.scale, PH2.rgamma.shape, PH2.rgamma.scale)
 						#main function to calculate gamma
 					}                                                       
 				))                                                          
@@ -105,236 +138,232 @@ gamma.sim <- function(L = NULL, U = NULL, alpha = 0.1, target.gamma = 0.9, m = 2
 
 #debug(gamma.sim)
 
-gamma.sim.vec <- function(L = NULL, U = NULL, alpha = 0.1, target.gamma = 0.9, m = 20, n = 5, tau = 1, sim = 1000, sim.alpha = 1000, sim.gamma = 1000, method.option = 'WH', PH2.rgamma.shape = (n - 1) / 2, PH2.rgamma.scale = 2, core = 2) {
-    result <- gamma.sim(L, U, alpha, target.gamma, m, n, tau, sim, sim.alpha, sim.gamma, method.option, PH2.rgamma.shape, PH2.rgamma.scale, core)$gamma.mean
+gamma.sim.vec <- function(nom.alpha = 0.1, nom.gamma = 0.9, m = 20, n = 5, sim = 1000, sim.alpha = 1000, sim.gamma = 1000, method.option = 'KMM',
+					  PH1.rgamma.shape = (n - 1) / 2, PH1.rgamma.scale = 2, PH2.rgamma.shape = PH1.rgamma.shape, PH2.rgamma.scale = PH1.rgamma.scale, core = 2) {
+    result <- gamma.sim(nom.alpha, nom.gamma, m, n, sim, sim.alpha, sim.gamma, method.option, PH1.rgamma.shape, PH1.rgamma.scale, PH2.rgamma.shape, PH2.rgamma.scale, core)$gamma.mean
     return(result)
 }
 
-gamma.sim.vec <- Vectorize(gamma.sim.vec, vectorize.args = c('L', 'U', 'alpha', 'target.gamma', 'm', 'n', 'tau', 'sim', 'sim.alpha', 
-        'sim.gamma', 'PH2.rgamma.shape', 'PH2.rgamma.scale'))
+gamma.sim.vec <- Vectorize(gamma.sim.vec, vectorize.args = c('nom.alpha', 'nom.gamma', 'm', 'n', 'sim', 'sim.alpha', 'sim.gamma',
+					  'PH1.rgamma.shape', 'PH1.rgamma.scale', 'PH2.rgamma.shape', 'PH2.rgamma.scale'))
 #Vectorizing the simulation of gamma
 #result only contains the mean of simulation of gamma
 
 #########################################################################################################################################################################
 
-#Example
+#simulation for KMM
+
+#########################################################################################################################################################################
+#
+#sim.vec <- 1000
+#sim.alpha.vec <- c(100, 250, 500, 1000)
+##sim.alpha.vec <- c(100)
+#sim.gamma.vec <- 250
+#
+#alpha.vec <- c(0.05, 0.1)
+#gamma.vec <- c(0.9, 0.95)
+#
+#m.vec <- c(10, 25, 50, 75, 100, 250)
+##m.vec <- c(10, 25)
+#n.vec <- c(5, 10)
+#
+#shift.vec <- seq(-0.25, 0.25, 0.05)
+##shift.vec <- 0
+#
+#pars.mat <- expand.grid(sim.vec, sim.gamma.vec, sim.alpha.vec, alpha.vec, gamma.vec, m.vec, n.vec, shift.vec)
+#
+#pars.mat1 <- cbind(pars.mat, (pars.mat[, 7] - 1) / 2, 2, (pars.mat[, 7] - 1) / 2 * (1 + pars.mat[, 8]), 2)
+#pars.mat2 <- cbind(pars.mat, (pars.mat[, 7] - 1) / 2, 2, (pars.mat[, 7] - 1) / 2, 2 * (1 + pars.mat[, 8]))
+#
+#pars.mat3 <- cbind(pars.mat, (pars.mat[, 7] - 1) / 2 * (1 + pars.mat[, 8]), 2, (pars.mat[, 7] - 1) / 2, 2)
+#pars.mat4 <- cbind(pars.mat, (pars.mat[, 7] - 1) / 2, 2 * (1 + pars.mat[, 8]), (pars.mat[, 7] - 1) / 2, 2)
+#
+#nn <- dim(pars.mat1)[1]
+#mm <- dim(pars.mat1)[2]
+#
+#result1 <- cbind(pars.mat1, NA)
+#result2 <- cbind(pars.mat2, NA)
+#result3 <- cbind(pars.mat3, NA)
+#result4 <- cbind(pars.mat4, NA)
+#
+#result1[, mm + 1] <- gamma.sim.vec(
+#				nom.alpha = pars.mat1[, 4], 
+#				nom.gamma = pars.mat1[, 5], 
+#				m = pars.mat1[, 6], 
+#				n = pars.mat1[, 7], 
+#				sim = pars.mat1[, 1], 
+#				sim.alpha = pars.mat1[, 2], 
+#				sim.gamma = pars.mat1[, 3], 
+#			  	PH1.rgamma.shape = pars.mat1[, 9], 
+#				PH1.rgamma.scale = pars.mat1[, 10], 
+#				PH2.rgamma.shape = pars.mat1[, 11], 
+#				PH2.rgamma.scale = pars.mat1[, 12], 
+#				method.option = 'KMM',
+#				core = 6
+#) 
+#
+#save(result1, file = '/home/yyao17/Documents/ToleranceInterval/simulation.result1.KMM.Rdata')
+#
+#result2[, mm + 1] <- gamma.sim.vec(
+#				nom.alpha = pars.mat2[, 4], 
+#				nom.gamma = pars.mat2[, 5], 
+#				m = pars.mat2[, 6], 
+#				n = pars.mat2[, 7], 
+#				sim = pars.mat2[, 1], 
+#				sim.alpha = pars.mat2[, 2], 
+#				sim.gamma = pars.mat2[, 3], 
+#			  	PH1.rgamma.shape = pars.mat2[, 9], 
+#				PH1.rgamma.scale = pars.mat2[, 10], 
+#				PH2.rgamma.shape = pars.mat2[, 11], 
+#				PH2.rgamma.scale = pars.mat2[, 12], 
+#				method.option = 'KMM',
+#				core = 6
+#) 
+#
+#save(result2, file = '/home/yyao17/Documents/ToleranceInterval/simulation.result2.KMM.Rdata')
+#
+#result3[, mm + 1] <- gamma.sim.vec(
+#				nom.alpha = pars.mat3[, 4], 
+#				nom.gamma = pars.mat3[, 5], 
+#				m = pars.mat3[, 6], 
+#				n = pars.mat3[, 7], 
+#				sim = pars.mat3[, 1], 
+#				sim.alpha = pars.mat3[, 2], 
+#				sim.gamma = pars.mat3[, 3], 
+#			  	PH1.rgamma.shape = pars.mat3[, 9], 
+#				PH1.rgamma.scale = pars.mat3[, 10], 
+#				PH2.rgamma.shape = pars.mat3[, 11], 
+#				PH2.rgamma.scale = pars.mat3[, 12], 
+#				method.option = 'KMM',
+#				core = 6
+#) 
+#
+#save(result3, file = '/home/yyao17/Documents/ToleranceInterval/simulation.result3.KMM.Rdata')
+#
+#result4[, mm + 1] <- gamma.sim.vec(
+#				nom.alpha = pars.mat4[, 4], 
+#				nom.gamma = pars.mat4[, 5], 
+#				m = pars.mat4[, 6], 
+#				n = pars.mat4[, 7], 
+#				sim = pars.mat4[, 1], 
+#				sim.alpha = pars.mat4[, 2], 
+#				sim.gamma = pars.mat4[, 3], 
+#			  	PH1.rgamma.shape = pars.mat4[, 9], 
+#				PH1.rgamma.scale = pars.mat4[, 10], 
+#				PH2.rgamma.shape = pars.mat4[, 11], 
+#				PH2.rgamma.scale = pars.mat4[, 12], 
+#				method.option = 'KMM',
+#				core = 6
+#) 
+#
+#save(result4, file = '/home/yyao17/Documents/ToleranceInterval/simulation.result4.KMM.Rdata')
 
 #########################################################################################################################################################################
 
-#Ex.gamma1 <- gamma.sim(L = 0.4226, U = 1.7983, alpha = 0.1, m = 20, n = 14, sim = 100, sim.alpha = 100, sim.gamma = 100, core = 3)
-#Ex.gamma1
+#simulation for CE
 
-#Vecotorized Example
-#gamma.sim.vec(
-#    L = c(.1100, .1056), 
-#    U = c(2.8904, 2.9351), 
-#    alpha = 0.05, 
-#	target.gamma = 0.9,
-#    m = 100, 
-#    n = 5, 
-#    tau = 1, 
-#    sim = 100, 
-#    sim.alpha = 100, 
-#    sim.gamma = 100,
-#	core = 3
-#) 
-#
-#gamma.sim.vec(
-#    L = 0, 
-#    U = 0, 
-#    alpha = 0.05, 
-#	target.gamma = 0.9,
-#    m = 100, 
-#    n = 5, 
-#    tau = 1, 
-#    sim = 100, 
-#    sim.alpha = 100, 
-#    sim.gamma = 100,
-#	option = 'NB',
-#	core = 3
-#) 
+#########################################################################################################################################################################
 
 
+sim.vec <- 1000
+#sim.alpha.vec <- c(100, 250, 500, 1000)
+sim.alpha.vec <- c(100)
+sim.gamma.vec <- 250
 
+alpha.vec <- c(0.05, 0.1)
+gamma.vec <- c(0.9, 0.95)
 
-#for (sim.alpha in sim.alpha.vec){
-#
-#    a <- gamma.sim.vec(
-#        L = c(
-#             0.1193，
-#             0.1467，
-#             0.1581，
-#             0.1626,
-#             0.1650，
-#             0.1704
-#        ), 
-#        U = c(
-#            2.8018,
-#            2.5780,
-#            2.4973,
-#            2.4674,
-#            2.4512,
-#            2.4171
-#        ), 
-#        alpha = 0.1, 
-#        target.gamma = 0.9,
-#        m = c(10, 25, 50, 75, 100, 250), 
-#        n = 5, 
-#        tau = 1, 
-#        sim = 1000, 
-#        sim.alpha = sim.alpha, 
-#        sim.gamma = 250,
-#        core = 3
-#    ) 
-#    cat(a, '\n')
-#
-#}
+#m.vec <- c(10, 25, 50, 75, 100, 250)
+m.vec <- c(10, 25)
+n.vec <- c(5, 10)
 
-#sim.alpha.vec <- c(100, 250)
+shift.vec <- seq(-0.25, 0.25, 0.25)
+#shift.vec <- 0
 
-#sim.alpha.vec <- c(100, 250, 500, 1000, 5000, 10000)
-sim.alpha.vec <- c(5000, 10000)
-shape.vec <- c(1.5, 1.6, 1.7, 1.8, 1.9, 2.1, 2.2, 2.3, 2.4, 2.5)
-scale.vec <- c(2)
+pars.mat <- expand.grid(sim.vec, sim.gamma.vec, sim.alpha.vec, alpha.vec, gamma.vec, m.vec, n.vec, shift.vec)
 
-result <- matrix(NA, nrow = length(sim.alpha.vec) * length(shape.vec) * length(scale.vec), ncol = 9)
+pars.mat1 <- cbind(pars.mat, (pars.mat[, 7] - 1) / 2, 2, (pars.mat[, 7] - 1) / 2 * (1 + pars.mat[, 8]), 2)
+pars.mat2 <- cbind(pars.mat, (pars.mat[, 7] - 1) / 2, 2, (pars.mat[, 7] - 1) / 2, 2 * (1 + pars.mat[, 8]))
 
-i <- 0
-for (shape in shape.vec){
+pars.mat3 <- cbind(pars.mat, (pars.mat[, 7] - 1) / 2 * (1 + pars.mat[, 8]), 2, (pars.mat[, 7] - 1) / 2, 2)
+pars.mat4 <- cbind(pars.mat, (pars.mat[, 7] - 1) / 2, 2 * (1 + pars.mat[, 8]), (pars.mat[, 7] - 1) / 2, 2)
 
-    for (scale in scale.vec){
+nn <- dim(pars.mat1)[1]
+mm <- dim(pars.mat1)[2]
 
-        for (sim.alpha in sim.alpha.vec){
+result1 <- cbind(pars.mat1, NA)
+result2 <- cbind(pars.mat2, NA)
+result3 <- cbind(pars.mat3, NA)
+result4 <- cbind(pars.mat4, NA)
 
-            i <- i + 1
-        
-            b <- gamma.sim.vec(
-                L = c(
-                     0.1196,
-                     0.1453,
-                     0.1562,
-                     0.1606,
-                     0.1630,
-                     0.1683
-                ), 
-                U = c(
-                    2.7990,
-                    2.5886,
-                    2.5102,
-                    2.4807,
-                    2.4646,
-                    2.4304
-                ), 
-                alpha = 0.1, 
-                target.gamma = 0.9,
-                m = c(10, 25, 50, 75, 100, 250), 
-                n = 5, 
-                tau = 1, 
-                sim = 1000, 
-                sim.alpha = sim.alpha, 
-                sim.gamma = 250,
-                PH2.rgamma.shape = shape,
-                PH2.rgamma.scale = scale,
-                core = 6
-            ) 
-            cat(b, '\n')
-            
-            result[i, 1] <- shape
-            result[i, 2] <- scale
-            result[i, 3] <- sim.alpha
-            result[i, 4:9] <- b
-            
-            save(result, file = '/home/yyao17/Documents/ToleranceInterval/simResult1.Rdata')
+result1[, mm + 1] <- gamma.sim.vec(
+				nom.alpha = pars.mat1[, 4], 
+				nom.gamma = pars.mat1[, 5], 
+				m = pars.mat1[, 6], 
+				n = pars.mat1[, 7], 
+				sim = pars.mat1[, 1], 
+				sim.alpha = pars.mat1[, 2], 
+				sim.gamma = pars.mat1[, 3], 
+			  	PH1.rgamma.shape = pars.mat1[, 9], 
+				PH1.rgamma.scale = pars.mat1[, 10], 
+				PH2.rgamma.shape = pars.mat1[, 11], 
+				PH2.rgamma.scale = pars.mat1[, 12], 
+				method.option = 'CE',
+				core = 6
+) 
 
-        }
+save(result1, file = '/home/yyao17/Documents/ToleranceInterval/simulation.result1.CE.Rdata')
 
-    }
+result2[, mm + 1] <- gamma.sim.vec(
+				nom.alpha = pars.mat2[, 4], 
+				nom.gamma = pars.mat2[, 5], 
+				m = pars.mat2[, 6], 
+				n = pars.mat2[, 7], 
+				sim = pars.mat2[, 1], 
+				sim.alpha = pars.mat2[, 2], 
+				sim.gamma = pars.mat2[, 3], 
+			  	PH1.rgamma.shape = pars.mat2[, 9], 
+				PH1.rgamma.scale = pars.mat2[, 10], 
+				PH2.rgamma.shape = pars.mat2[, 11], 
+				PH2.rgamma.scale = pars.mat2[, 12], 
+				method.option = 'CE',
+				core = 6
+) 
 
-}
+save(result2, file = '/home/yyao17/Documents/ToleranceInterval/simulation.result2.CE.Rdata')
 
+result3[, mm + 1] <- gamma.sim.vec(
+				nom.alpha = pars.mat3[, 4], 
+				nom.gamma = pars.mat3[, 5], 
+				m = pars.mat3[, 6], 
+				n = pars.mat3[, 7], 
+				sim = pars.mat3[, 1], 
+				sim.alpha = pars.mat3[, 2], 
+				sim.gamma = pars.mat3[, 3], 
+			  	PH1.rgamma.shape = pars.mat3[, 9], 
+				PH1.rgamma.scale = pars.mat3[, 10], 
+				PH2.rgamma.shape = pars.mat3[, 11], 
+				PH2.rgamma.scale = pars.mat3[, 12], 
+				method.option = 'CE',
+				core = 6
+) 
 
-sim.alpha.vec <- c(100, 250, 500, 1000)
-shape.vec <- c(2)
-scale.vec <- c(1.5, 1.6, 1.7, 1.8, 1.9, 2.1, 2.2, 2.3, 2.4, 2.5)
+save(result3, file = '/home/yyao17/Documents/ToleranceInterval/simulation.result3.CE.Rdata')
 
-result <- matrix(NA, nrow = length(sim.alpha.vec) * length(shape.vec) * length(scale.vec), ncol = 9)
+result4[, mm + 1] <- gamma.sim.vec(
+				nom.alpha = pars.mat4[, 4], 
+				nom.gamma = pars.mat4[, 5], 
+				m = pars.mat4[, 6], 
+				n = pars.mat4[, 7], 
+				sim = pars.mat4[, 1], 
+				sim.alpha = pars.mat4[, 2], 
+				sim.gamma = pars.mat4[, 3], 
+			  	PH1.rgamma.shape = pars.mat4[, 9], 
+				PH1.rgamma.scale = pars.mat4[, 10], 
+				PH2.rgamma.shape = pars.mat4[, 11], 
+				PH2.rgamma.scale = pars.mat4[, 12], 
+				method.option = 'CE',
+				core = 6
+) 
 
-i <- 0
-for (shape in shape.vec){
-
-    for (scale in scale.vec){
-
-        for (sim.alpha in sim.alpha.vec){
-
-            i <- i + 1
-        
-            b <- gamma.sim.vec(
-                L = c(
-                     0.1196,
-                     0.1453,
-                     0.1562,
-                     0.1606,
-                     0.1630,
-                     0.1683
-                ), 
-                U = c(
-                    2.7990,
-                    2.5886,
-                    2.5102,
-                    2.4807,
-                    2.4646,
-                    2.4304
-                ), 
-                alpha = 0.1, 
-                target.gamma = 0.9,
-                m = c(10, 25, 50, 75, 100, 250), 
-                n = 5, 
-                tau = 1, 
-                sim = 1000, 
-                sim.alpha = sim.alpha, 
-                sim.gamma = 250,
-                PH2.rgamma.shape = shape,
-                PH2.rgamma.scale = scale,
-                core = 6
-            ) 
-            cat(b, '\n')
-            
-            result[i, 1] <- shape
-            result[i, 2] <- scale
-            result[i, 3] <- sim.alpha
-            result[i, 4:9] <- b
-            
-            save(result, file = '/home/yyao17/Documents/ToleranceInterval/simResult2.Rdata')
-
-        }
-
-    }
-
-}
-
-
-
-#for (sim.alpha in sim.alpha.vec){
-#
-#    cc <- gamma.sim.vec(
-#        L = c(
-#             0
-#        ), 
-#        U = c(
-#            0
-#        ), 
-#        alpha = 0.1, 
-#        target.gamma = 0.9,
-#        m = c(10, 25, 50, 75, 100, 250), 
-#        n = 5, 
-#        tau = 1, 
-#        sim = 1000, 
-#        sim.alpha = sim.alpha, 
-#        sim.gamma = 250,
-#        option = 'NB',
-#        core = 3
-#    ) 
-#    cat(cc, '\n')
-#
-#}
-
+save(result4, file = '/home/yyao17/Documents/ToleranceInterval/simulation.result4.CE.Rdata')
