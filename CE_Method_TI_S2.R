@@ -14,9 +14,9 @@ secant.method <- function(f, x0, x1, tol=1e-10, n_int=10000000){   ###100000  ##
       return(x2)  ##### the search value will be the first one that is less than tol value (it can be + or -)
     }
     if (fx2 < 0) 
-      x0 <- x2     ####convex function
+      x1 <- x2     ####convex function
     else
-      x1 <- x2     ####concave function
+      x0 <- x2     ####concave function
   }
   stop("out of the specified n_int")
 }
@@ -36,7 +36,7 @@ WH_gamma_approx<-function(alpha,alpha_star,m,n) {
     expr<-pchisq(cte*(invchi^(3/2))/a_b,(m*(n-1)))
     return(expr)
   }
-  integrate_value<-integrate(EXPRESS,lower=0,upper=1,rel.tol = .Machine$double.eps^0.13)
+  integrate_value<-integrate(EXPRESS,lower=0,upper=1,rel.tol = .Machine$double.eps^0.13)  ##### rel.tol = .Machine$double.eps^0.13
   d<-integrate_value$value
   return(1-d)
 }
@@ -62,15 +62,15 @@ find1_alpha_star<- function(m,n,gamma,alpha){
   if(alpha_ref>=alpha){
     ref_Uval<-alpha
   }
-  if(alpha_ref-(alpha/5)>0){
-    ref_Lval<-ref_Uval-(alpha/5)
+  if(ref_Uval/100-(alpha/200)>0){  ###### if(ref_Uval/10-(alpha/20)>0)
+    ref_Lval<-ref_Uval/100-(alpha/200)   #####  ref_Lval<-ref_Uval/10-(alpha/20)
   }
-  if(alpha_ref-(alpha/5)<=0){
-    ref_Lval<-0.000001
+  if(ref_Uval/100-(alpha/200)<=0){   ######   if(ref_Uval/10-(alpha/20)<=0)
+    ref_Lval<-0.000001  ## 0.000001
   }
   
   
-  resp<-secant.method(find2_alpha_star,ref_Lval,ref_Uval) ### 0.01,0.03  ###0.0009,0.002 ##0.000003572776
+  resp<-secant.method(find2_alpha_star,ref_Lval,ref_Uval) ### 1e-04,0.01  ###0.0009,0.002 ##0.000003572776 ##secant.method(find2_alpha_star,ref_Lval,ref_Uval)
   L_adj<-qchisq(resp/2,n-1)/(n-1)
   U_adj<-qchisq(1-(resp/2),n-1)/(n-1)  
   answ<-c(1-resp,L_adj,U_adj)
