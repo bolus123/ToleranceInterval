@@ -1,4 +1,4 @@
-q#Calculating gamma with parallel technique by simulation
+#Calculating gamma with parallel technique by simulation
 #author: Yuhui Yao
 #version: 0.9
 #update: 9.6.2018
