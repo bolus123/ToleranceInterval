@@ -543,15 +543,15 @@ gamma.sim.vec <- Vectorize(gamma.sim.vec, vectorize.args = c('nom.alpha', 'nom.g
 ################################### Ph2.dist ###################################
 
 sim.vec <- 1000
-#sim.alpha.vec <- c(100, 250, 500, 1000)
-sim.alpha.vec <- c(100)
+sim.alpha.vec <- c(100, 250, 500, 1000)
+#sim.alpha.vec <- c(100)
 sim.gamma.vec <- 250
 
 alpha.vec <- c(0.05, 0.1)
 gamma.vec <- c(0.9, 0.95)
 
-#m.vec <- c(10, 25, 50, 75, 100, 250)
-m.vec <- c(250)
+m.vec <- c(10, 25, 50, 75, 100, 250)
+#m.vec <- c(250)
 n.vec <- c(5, 10)
 
 pars.mat <- expand.grid(sim.vec, sim.gamma.vec, sim.alpha.vec, alpha.vec, gamma.vec, m.vec, n.vec)
@@ -606,15 +606,15 @@ result3[, mm + 1] <- gamma.sim.vec(
 ################################### Ph2.dist ###################################
 
 sim.vec <- 1000
-#sim.alpha.vec <- c(100, 250, 500, 1000)
-sim.alpha.vec <- c(100)
+sim.alpha.vec <- c(100, 250, 500, 1000)
+#sim.alpha.vec <- c(100)
 sim.gamma.vec <- 250
 
 alpha.vec <- c(0.05, 0.1)
 gamma.vec <- c(0.9, 0.95)
 
-#m.vec <- c(10, 25, 50, 75, 100, 250)
-m.vec <- c(250)
+m.vec <- c(10, 25, 50, 75, 100, 250)
+#m.vec <- c(250)
 n.vec <- c(5, 10)
 
 pars.mat <- expand.grid(sim.vec, sim.gamma.vec, sim.alpha.vec, alpha.vec, gamma.vec, m.vec, n.vec)
