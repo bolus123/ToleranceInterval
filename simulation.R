@@ -32,11 +32,32 @@ kappa.f <- function(n, interval = c(0.1, 10)) {
 
 lambda.f <- function(n, kappa) {(n - 1) / gamma(1 + 1/kappa)}
 
+logsigma2.f <- function(n, interval = c(0.1, 10)) {
+
+    logmu.f <- function(logsigma2, n) {
+        log(n - 1) - logsigma2 / 2
+    }
+    
+    root.finding.f <- function(logsigma2, n) {
+    
+        2 * (n - 1) - (exp(logsigma2) - 1) * exp(2 * logmu.f(logsigma2, n) + logsigma2)
+    
+    }
+    
+    logsigma2 <- uniroot(root.finding.f, interval = interval, n = n)$root
+    
+    c(logmu.f(logsigma2, n), logsigma2)
+
+}
+
+#########################################################################################################################################################################
+
+
 gamma.sim <- function(nom.alpha = 0.1, nom.gamma = 0.9, m = 20, n = 5, sim = 1000, sim.alpha = 1000, sim.gamma = 1000, method.option = 'KMM', 
 					  PH1.rgamma.shape = (n - 1) / 2, PH1.rgamma.scale = 2, PH2.rgamma.shape = PH1.rgamma.shape, PH2.rgamma.scale = PH1.rgamma.scale, 
-					  weibull.option = FALSE, kappa.interval = c(0.1, 10), core = 2) {
+					  Ph2.dist.option = 'GAMMA', Ph2.para.interval = c(0.1, 10), core = 2) {
 	
-	inner.loop.f <- function(L = NULL, U = NULL, x, S2, S2p, m, n, nom.alpha, PH2.rgamma.shape, PH2.rgamma.scale, method.option = 'KMM', weibull.option = FALSE, kappa.interval = c(0.1, 10)) {
+	inner.loop.f <- function(L = NULL, U = NULL, x, S2, S2p, m, n, nom.alpha, PH2.rgamma.shape, PH2.rgamma.scale, method.option = 'KMM', Ph2.dist.option = FALSE, Ph2.para.interval = c(0.1, 10)) {
 						
 			if (method.option == 'KMM') {
 				cc <- sqrt((m - 1) * qchisq(1 - nom.alpha, 1, 1 / m) / qchisq(1 - nom.gamma, m - 1))
@@ -49,18 +70,24 @@ gamma.sim <- function(nom.alpha = 0.1, nom.gamma = 0.9, m = 20, n = 5, sim = 100
 			}
 		
 		
-			if (weibull.option == FALSE) { 
+			if (Ph2.dist.option == 'GAMMA') { 
 	
         		S2.samp <- rgamma(sim.alpha, shape = PH2.rgamma.shape, scale = PH2.rgamma.scale) / (n - 1)
 				
-			} else if (weibull.option == TRUE) {
+			} else if (Ph2.dist.option == 'WEIBULL') {
 
-				kappa <- kappa.f(n, kappa.interval)
+				kappa <- kappa.f(n, Ph2.para.interval)
 				lambda <- lambda.f(n, kappa)
 				
 				S2.samp <- rweibull(sim.alpha, shape = kappa, scale = lambda) / (n - 1)
 				
-			}	
+			} else if (Ph2.dist.option == 'LOGNORMAL') {
+            
+                pars <- logsigma2.f(n, Ph2.para.interval)
+                
+                S2.samp <- rlnorm(sim.alpha, meanlog = pars[1], sdlog = sqrt(pars[2])) / (n - 1)
+                
+            }
 				
 			gamma <- mean(L * S2p[x] <= S2.samp & S2.samp <= U * S2p[x]) >= 1 - nom.alpha
 			return(gamma)
@@ -70,7 +97,7 @@ gamma.sim <- function(nom.alpha = 0.1, nom.gamma = 0.9, m = 20, n = 5, sim = 100
 	
 	gamma.f <- function(L = NULL, U = NULL, nom.alpha = 0.1, nom.gamma = 0.9, m = 20, n = 5, sim.alpha = 1000, sim.gamma = 1000, method.option = 'KMM', 
 						PH1.rgamma.shape = (n - 1) / 2, PH1.rgamma.scale = 2, PH2.rgamma.shape = PH1.rgamma.shape, 
-						PH2.rgamma.scale = PH1.rgamma.scale, weibull.option = FALSE, kappa.interval = c(0.1, 10)){	
+						PH2.rgamma.scale = PH1.rgamma.scale, Ph2.dist.option = FALSE, Ph2.para.interval = c(0.1, 10)){	
 	#Main computational function of calculating gamma with parallel technique
 	#L and U are lower and upper tolerance factors, respectively
 	#m and n are the number of subgroups and the subgroup size
@@ -88,7 +115,7 @@ gamma.sim <- function(nom.alpha = 0.1, nom.gamma = 0.9, m = 20, n = 5, sim = 100
 		#Special part for the Normal-based method. The methodology is written in Appendix B
 
 		gamma.vec <- inner.loop.f(L = L, U = U, x = 1:sim.gamma, S2 = S2, S2p = S2p, m = m, n = n, nom.alpha = nom.alpha, PH2.rgamma.shape = PH2.rgamma.shape, PH2.rgamma.scale = PH2.rgamma.scale, 
-								  method.option = method.option, weibull.option = weibull.option, kappa.interval = kappa.interval)
+								  method.option = method.option, Ph2.dist.option = Ph2.dist.option, Ph2.para.interval = Ph2.para.interval)
 		
 		gamma <- mean(gamma.vec)
 				
@@ -124,9 +151,9 @@ gamma.sim <- function(nom.alpha = 0.1, nom.gamma = 0.9, m = 20, n = 5, sim = 100
 	
 	
 	clusterExport(cl, c('L', 'U', 'nom.alpha', 'nom.gamma', 'm', 'n', 'method.option', 'sim.alpha', 
-        'sim.gamma', 'gamma.f', 'inner.loop.f', 'PH1.rgamma.shape', 'PH1.rgamma.scale', 'PH2.rgamma.shape', 'PH2.rgamma.scale', 'weibull.option', 'kappa.interval', 'rweibull'), envir = environment())
+        'sim.gamma', 'gamma.f', 'inner.loop.f', 'PH1.rgamma.shape', 'PH1.rgamma.scale', 'PH2.rgamma.shape', 'PH2.rgamma.scale', 'Ph2.dist.option', 'Ph2.para.interval', 'Ph2.para.interval'), envir = environment())
 	
-	clusterExport(cl, c('secantc', 'secant', 'gamma_val', 'EX.find_alpha_star', 'secant.method', 'WH_gamma_approx', 'CE.find_alpha_star', 'kappa.f', 'lambda.f'))
+	clusterExport(cl, c('secantc', 'secant', 'gamma_val', 'EX.find_alpha_star', 'secant.method', 'WH_gamma_approx', 'CE.find_alpha_star', 'kappa.f', 'lambda.f', 'logsigma2.f'))
 	
 	#load variables into the cluster
 	
@@ -141,7 +168,7 @@ gamma.sim <- function(nom.alpha = 0.1, nom.gamma = 0.9, m = 20, n = 5, sim = 100
 						gamma.f(
 							L = L, U = U, nom.alpha = nom.alpha, nom.gamma = nom.gamma, m = m, n = n, sim.alpha = sim.alpha, sim.gamma = sim.gamma, method.option = method.option, 
 							PH1.rgamma.shape = PH1.rgamma.shape, PH1.rgamma.scale = PH1.rgamma.scale, PH2.rgamma.shape = PH2.rgamma.shape, 
-							PH2.rgamma.scale = PH2.rgamma.scale, weibull.option = weibull.option, kappa.interval = kappa.interval)
+							PH2.rgamma.scale = PH2.rgamma.scale, Ph2.dist.option = Ph2.dist.option, Ph2.para.interval = Ph2.para.interval)
 						#main function to calculate gamma
 					}                                                       
 				))                                                          
@@ -172,9 +199,9 @@ gamma.sim <- function(nom.alpha = 0.1, nom.gamma = 0.9, m = 20, n = 5, sim = 100
 #debug(gamma.sim)
 
 gamma.sim.vec <- function(nom.alpha = 0.1, nom.gamma = 0.9, m = 20, n = 5, sim = 1000, sim.alpha = 1000, sim.gamma = 1000, method.option = 'KMM',
-					  PH1.rgamma.shape = (n - 1) / 2, PH1.rgamma.scale = 2, PH2.rgamma.shape = PH1.rgamma.shape, PH2.rgamma.scale = PH1.rgamma.scale, weibull.option = FALSE, kappa.interval = c(0.1, 10), core = 2) {
+					  PH1.rgamma.shape = (n - 1) / 2, PH1.rgamma.scale = 2, PH2.rgamma.shape = PH1.rgamma.shape, PH2.rgamma.scale = PH1.rgamma.scale, Ph2.dist.option = FALSE, Ph2.para.interval = c(0.1, 10), core = 2) {
     result <- gamma.sim(nom.alpha, nom.gamma, m, n, sim, sim.alpha, sim.gamma, method.option, PH1.rgamma.shape, PH1.rgamma.scale, 
-						PH2.rgamma.shape, PH2.rgamma.scale, weibull.option, kappa.interval, core)$gamma.mean
+						PH2.rgamma.shape, PH2.rgamma.scale, Ph2.dist.option, Ph2.para.interval, core)$gamma.mean
     return(result)
 }
 
@@ -513,7 +540,7 @@ gamma.sim.vec <- Vectorize(gamma.sim.vec, vectorize.args = c('nom.alpha', 'nom.g
 #save(result4, file = '/home/yyao17/Documents/ToleranceInterval/simulation.result4.EXACT.Rdata')
 
 
-################################### weibull ###################################
+################################### Ph2.dist ###################################
 
 sim.vec <- 1000
 #sim.alpha.vec <- c(100, 250, 500, 1000)
@@ -545,7 +572,7 @@ result1[, mm + 1] <- gamma.sim.vec(
 				sim.alpha = pars.mat[, 2], 
 				sim.gamma = pars.mat[, 3], 
 				method.option = 'EXACT',
-				weibull.option = TRUE,
+				Ph2.dist.option = 'WEIBULL',
 				core = 6
 ) 
 
@@ -558,7 +585,7 @@ result2[, mm + 1] <- gamma.sim.vec(
 				sim.alpha = pars.mat[, 2], 
 				sim.gamma = pars.mat[, 3], 
 				method.option = 'CE',
-				weibull.option = TRUE,
+				Ph2.dist.option = 'WEIBULL',
 				core = 6
 ) 
 
@@ -571,6 +598,70 @@ result3[, mm + 1] <- gamma.sim.vec(
 				sim.alpha = pars.mat[, 2], 
 				sim.gamma = pars.mat[, 3], 
 				method.option = 'KMM',
-				weibull.option = TRUE,
+				Ph2.dist.option = 'WEIBULL',
 				core = 6
 ) 
+
+
+################################### Ph2.dist ###################################
+
+sim.vec <- 1000
+#sim.alpha.vec <- c(100, 250, 500, 1000)
+sim.alpha.vec <- c(100)
+sim.gamma.vec <- 250
+
+alpha.vec <- c(0.05, 0.1)
+gamma.vec <- c(0.9, 0.95)
+
+#m.vec <- c(10, 25, 50, 75, 100, 250)
+m.vec <- c(250)
+n.vec <- c(5, 10)
+
+pars.mat <- expand.grid(sim.vec, sim.gamma.vec, sim.alpha.vec, alpha.vec, gamma.vec, m.vec, n.vec)
+
+nn <- dim(pars.mat)[1]
+mm <- dim(pars.mat)[2]
+
+result11 <- cbind(pars.mat, NA)
+result22 <- cbind(pars.mat, NA)
+result33 <- cbind(pars.mat, NA)
+
+result11[, mm + 1] <- gamma.sim.vec(
+				nom.alpha = pars.mat[, 4], 
+				nom.gamma = pars.mat[, 5], 
+				m = pars.mat[, 6], 
+				n = pars.mat[, 7], 
+				sim = pars.mat[, 1], 
+				sim.alpha = pars.mat[, 2], 
+				sim.gamma = pars.mat[, 3], 
+				method.option = 'EXACT',
+				Ph2.dist.option = 'LOGNORMAL',
+				core = 6
+) 
+
+result22[, mm + 1] <- gamma.sim.vec(
+				nom.alpha = pars.mat[, 4], 
+				nom.gamma = pars.mat[, 5], 
+				m = pars.mat[, 6], 
+				n = pars.mat[, 7], 
+				sim = pars.mat[, 1], 
+				sim.alpha = pars.mat[, 2], 
+				sim.gamma = pars.mat[, 3], 
+				method.option = 'CE',
+				Ph2.dist.option = 'LOGNORMAL',
+				core = 6
+) 
+
+result33[, mm + 1] <- gamma.sim.vec(
+				nom.alpha = pars.mat[, 4], 
+				nom.gamma = pars.mat[, 5], 
+				m = pars.mat[, 6], 
+				n = pars.mat[, 7], 
+				sim = pars.mat[, 1], 
+				sim.alpha = pars.mat[, 2], 
+				sim.gamma = pars.mat[, 3], 
+				method.option = 'KMM',
+				Ph2.dist.option = 'LOGNORMAL',
+				core = 6
+) 
+
