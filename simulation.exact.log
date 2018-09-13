@@ -1,0 +1,8 @@
+Loading required package: parallel
+Error in integrate(EXPRESS, lower = 0, upper = 1, rel.tol = .Machine$double.eps^0.13) : 
+  non-finite function value
+Calls: gamma.sim.vec ... CE.find_alpha_star -> secant.method -> f -> WH_gamma_approx -> integrate
+In addition: Warning messages:
+1: In qchisq(1 - alpha_star/2, n - 1) : NaNs produced
+2: In qchisq(alpha_star/2, n - 1) : NaNs produced
+Execution halted

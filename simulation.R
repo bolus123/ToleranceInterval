@@ -57,47 +57,17 @@ gamma.sim <- function(nom.alpha = 0.1, nom.gamma = 0.9, m = 20, n = 5, sim = 100
 					  PH1.rgamma.shape = (n - 1) / 2, PH1.rgamma.scale = 2, PH2.rgamma.shape = PH1.rgamma.shape, PH2.rgamma.scale = PH1.rgamma.scale, 
 					  Ph2.dist.option = 'GAMMA', Ph2.para.interval = c(0.1, 10), core = 2) {
 	
-	inner.loop.f <- function(L = NULL, U = NULL, x, S2, S2p, m, n, nom.alpha, PH2.rgamma.shape, PH2.rgamma.scale, method.option = 'KMM', Ph2.dist.option = FALSE, Ph2.para.interval = c(0.1, 10)) {
-						
-			if (method.option == 'KMM') {
-				cc <- sqrt((m - 1) * qchisq(1 - nom.alpha, 1, 1 / m) / qchisq(1 - nom.gamma, m - 1))
-
-				S2.LNB <- (mean(S2[, x]^(1 / 3)) - cc * 1 / sqrt(m - 1) * sqrt( sum((S2[, x]^(1 / 3) - mean(S2[, x]^(1 / 3)))^2 ))  ) ^ 3
-				L <- S2.LNB / S2p[x]
-
-				S2.UNB <- (mean(S2[, x]^(1 / 3)) + cc * 1 / sqrt(m - 1) * sqrt( sum((S2[, x]^(1 / 3) - mean(S2[, x]^(1 / 3)))^2 ))  ) ^ 3
-				U <- S2.UNB / S2p[x]
-			}
-		
-		
-			if (Ph2.dist.option == 'GAMMA') { 
-	
-        		S2.samp <- rgamma(sim.alpha, shape = PH2.rgamma.shape, scale = PH2.rgamma.scale) / (n - 1)
+	inner.loop.f <- function(x, L = NA, U = NA, S2, S2p, S2.samp, m, n, nom.alpha) {
 				
-			} else if (Ph2.dist.option == 'WEIBULL') {
-
-				kappa <- kappa.f(n, Ph2.para.interval)
-				lambda <- lambda.f(n, kappa)
-				
-				S2.samp <- rweibull(sim.alpha, shape = kappa, scale = lambda) / (n - 1)
-				
-			} else if (Ph2.dist.option == 'LOGNORMAL') {
-            
-                pars <- logsigma2.f(n, Ph2.para.interval)
-                
-                S2.samp <- rlnorm(sim.alpha, meanlog = pars[1], sdlog = sqrt(pars[2])) / (n - 1)
-                
-            }
-				
-			gamma <- mean(L * S2p[x] <= S2.samp & S2.samp <= U * S2p[x]) >= 1 - nom.alpha
+			gamma <- mean(L[x] * S2p[x] <= S2.samp[, x] & S2.samp[, x] <= U[x] * S2p[x]) >= 1 - nom.alpha
 			return(gamma)
 		}
 		
 	inner.loop.f <- Vectorize(inner.loop.f, vectorize.args = 'x')
 	
-	gamma.f <- function(L = NULL, U = NULL, nom.alpha = 0.1, nom.gamma = 0.9, m = 20, n = 5, sim.alpha = 1000, sim.gamma = 1000, method.option = 'KMM', 
+	gamma.f <- function(L = NA, U = NA, nom.alpha = 0.1, nom.gamma = 0.9, m = 20, n = 5, sim.alpha = 1000, sim.gamma = 1000, method.option = 'KMM', 
 						PH1.rgamma.shape = (n - 1) / 2, PH1.rgamma.scale = 2, PH2.rgamma.shape = PH1.rgamma.shape, 
-						PH2.rgamma.scale = PH1.rgamma.scale, Ph2.dist.option = FALSE, Ph2.para.interval = c(0.1, 10)){	
+						PH2.rgamma.scale = PH1.rgamma.scale, Ph2.dist.option = 'GAMMA', Ph2.para.interval = c(0.1, 10)){	
 	#Main computational function of calculating gamma with parallel technique
 	#L and U are lower and upper tolerance factors, respectively
 	#m and n are the number of subgroups and the subgroup size
@@ -111,11 +81,57 @@ gamma.sim <- function(nom.alpha = 0.1, nom.gamma = 0.9, m = 20, n = 5, sim = 100
 		S2 <- matrix(rgamma(m * sim.gamma, shape = PH1.rgamma.shape, scale = PH1.rgamma.scale), nrow = m, ncol = sim.gamma) / (n - 1)
 		
 		S2p <- colMeans(S2)
+		
+		L <- rep(L, sim.gamma)
+		U <- rep(U, sim.gamma)
+		
+		if (method.option == 'KMM') {
+			
+			cc <- sqrt((m - 1) * qchisq(1 - nom.alpha, 1, 1 / m) / qchisq(1 - nom.gamma, m - 1))
+			
+			L <- unlist(lapply(1:sim.gamma, function(x) {
+				
+					S2.LNB <- (mean(S2[, x]^(1 / 3)) - cc * 1 / sqrt(m - 1) * sqrt( sum((S2[, x]^(1 / 3) - mean(S2[, x]^(1 / 3)))^2 ))  ) ^ 3
+					L <- S2.LNB / S2p[x]
+				
+					return(L)
+				
+				}))
+			
+			U <- unlist(lapply(1:sim.gamma, function(x) {
+				
+					S2.UNB <- (mean(S2[, x]^(1 / 3)) + cc * 1 / sqrt(m - 1) * sqrt( sum((S2[, x]^(1 / 3) - mean(S2[, x]^(1 / 3)))^2 ))  ) ^ 3
+					U <- S2.UNB / S2p[x]
+				
+					return(U)
+				
+				}))
+			
+		}
+		
+		
+		if (Ph2.dist.option == 'GAMMA') { 
+	
+       		S2.samp <- matrix(rgamma(sim.alpha, shape = PH2.rgamma.shape, scale = PH2.rgamma.scale), nrow = sim.alpha, ncol = sim.gamma) / (n - 1)
+			
+		} else if (Ph2.dist.option == 'WEIBULL') {
+
+			kappa <- kappa.f(n, Ph2.para.interval)
+			lambda <- lambda.f(n, kappa)
+			
+			S2.samp <- matrix(rweibull(sim.alpha, shape = kappa, scale = lambda), nrow = sim.alpha, ncol = sim.gamma) / (n - 1)
+			
+		} else if (Ph2.dist.option == 'LOGNORMAL') {
+       
+           pars <- logsigma2.f(n, Ph2.para.interval)
+           
+           S2.samp <- matrix(rlnorm(sim.alpha, meanlog = pars[1], sdlog = sqrt(pars[2])), nrow = sim.alpha, ncol = sim.gamma) / (n - 1)
+           
+       }
 
 		#Special part for the Normal-based method. The methodology is written in Appendix B
 
-		gamma.vec <- inner.loop.f(L = L, U = U, x = 1:sim.gamma, S2 = S2, S2p = S2p, m = m, n = n, nom.alpha = nom.alpha, PH2.rgamma.shape = PH2.rgamma.shape, PH2.rgamma.scale = PH2.rgamma.scale, 
-								  method.option = method.option, Ph2.dist.option = Ph2.dist.option, Ph2.para.interval = Ph2.para.interval)
+		gamma.vec <- inner.loop.f(x = 1:sim.gamma, L = L, U = U, S2 = S2, S2p = S2p, S2.samp, m = m, n = n, nom.alpha = nom.alpha)
 		
 		gamma <- mean(gamma.vec)
 				
@@ -209,6 +225,204 @@ gamma.sim.vec <- Vectorize(gamma.sim.vec, vectorize.args = c('nom.alpha', 'nom.g
 					  'PH1.rgamma.shape', 'PH1.rgamma.scale', 'PH2.rgamma.shape', 'PH2.rgamma.scale'))
 #Vectorizing the simulation of gamma
 #result only contains the mean of simulation of gamma
+
+
+
+
+#########################################################################################################################################################################
+
+
+
+alpha.sim <- function(nom.alpha = 0.1, nom.gamma = 0.9, m = 20, n = 5, sim = 1000, sim.alpha = 1000, sim.gamma = 1000, method.option = 'KMM', 
+					  PH1.rgamma.shape = (n - 1) / 2, PH1.rgamma.scale = 2, PH2.rgamma.shape = PH1.rgamma.shape, PH2.rgamma.scale = PH1.rgamma.scale, 
+					  Ph2.dist.option = 'GAMMA', Ph2.para.interval = c(0.1, 10), core = 2) {
+	
+	inner.loop.f <- function(x, L = NA, U = NA, S2, S2p, S2.samp, m, n, simulated.alpha) {
+				
+			gamma <- mean(L[x] * S2p[x] <= S2.samp[, x] & S2.samp[, x] <= U[x] * S2p[x]) >= 1 - simulated.alpha
+			return(gamma)
+		
+		}
+		
+	inner.loop.f <- Vectorize(inner.loop.f, vectorize.args = 'x')
+	
+	gamma.f <- function(simulated.alpha, L = NA, U = NA, nom.alpha = 0.1, nom.gamma = 0.9, m = 20, n = 5, sim.alpha = 1000, sim.gamma = 1000, method.option = 'KMM', 
+						PH1.rgamma.shape = (n - 1) / 2, PH1.rgamma.scale = 2, PH2.rgamma.shape = PH1.rgamma.shape, 
+						PH2.rgamma.scale = PH1.rgamma.scale, Ph2.dist.option = 'GAMMA', Ph2.para.interval = c(0.1, 10)){	
+	#Main computational function of calculating gamma with parallel technique
+	#L and U are lower and upper tolerance factors, respectively
+	#m and n are the number of subgroups and the subgroup size
+	#sim.alpha is the number of simulations of non-signal events
+	#							
+	#simulate X following the standard normal distribution
+	#calculate the subgroups' variances
+	#calculate the mean of  variances																			
+	#
+ 
+		S2 <- matrix(rgamma(m * sim.gamma, shape = PH1.rgamma.shape, scale = PH1.rgamma.scale), nrow = m, ncol = sim.gamma) / (n - 1)
+		
+		S2p <- colMeans(S2)
+		
+		L <- rep(L, sim.gamma)
+		U <- rep(U, sim.gamma)
+		
+		if (method.option == 'KMM') {
+			
+			cc <- sqrt((m - 1) * qchisq(1 - nom.alpha, 1, 1 / m) / qchisq(1 - nom.gamma, m - 1))
+			
+			L <- unlist(lapply(1:sim.gamma, function(x) {
+				
+					S2.LNB <- (mean(S2[, x]^(1 / 3)) - cc * 1 / sqrt(m - 1) * sqrt( sum((S2[, x]^(1 / 3) - mean(S2[, x]^(1 / 3)))^2 ))  ) ^ 3
+					L <- S2.LNB / S2p[x]
+				
+					return(L)
+				
+				}))
+			
+			U <- unlist(lapply(1:sim.gamma, function(x) {
+				
+					S2.UNB <- (mean(S2[, x]^(1 / 3)) + cc * 1 / sqrt(m - 1) * sqrt( sum((S2[, x]^(1 / 3) - mean(S2[, x]^(1 / 3)))^2 ))  ) ^ 3
+					U <- S2.UNB / S2p[x]
+				
+					return(U)
+				
+				}))
+			
+		}
+		
+		
+		if (Ph2.dist.option == 'GAMMA') { 
+	
+       		S2.samp <- matrix(rgamma(sim.alpha, shape = PH2.rgamma.shape, scale = PH2.rgamma.scale), nrow = sim.alpha, ncol = sim.gamma) / (n - 1)
+			
+		} else if (Ph2.dist.option == 'WEIBULL') {
+
+			kappa <- kappa.f(n, Ph2.para.interval)
+			lambda <- lambda.f(n, kappa)
+			
+			S2.samp <- matrix(rweibull(sim.alpha, shape = kappa, scale = lambda), nrow = sim.alpha, ncol = sim.gamma) / (n - 1)
+			
+		} else if (Ph2.dist.option == 'LOGNORMAL') {
+       
+           pars <- logsigma2.f(n, Ph2.para.interval)
+           
+           S2.samp <- matrix(rlnorm(sim.alpha, meanlog = pars[1], sdlog = sqrt(pars[2])), nrow = sim.alpha, ncol = sim.gamma) / (n - 1)
+           
+       }
+
+		#Special part for the Normal-based method. The methodology is written in Appendix B
+
+		gamma.vec <- inner.loop.f(x = 1:sim.gamma, L = L, U = U, S2 = S2, S2p = S2p, S2.samp, m = m, n = n, simulated.alpha = simulated.alpha)
+		
+		gamma <- mean(gamma.vec)
+				
+		#calcualte the probability of non-signal event
+		#and compare it with 1 - nom.alpha
+                                                                           
+		return(gamma)                                                      
+                                                                           
+	}   
+	
+	root.finding.alpha.f <- function(simulated.alpha, L = NA, U = NA, nom.alpha = 0.1, nom.gamma = 0.9, m = 20, n = 5, sim.alpha = 1000, sim.gamma = 1000, method.option = 'KMM', 
+						PH1.rgamma.shape = (n - 1) / 2, PH1.rgamma.scale = 2, PH2.rgamma.shape = PH1.rgamma.shape, 
+						PH2.rgamma.scale = PH1.rgamma.scale, Ph2.dist.option = 'GAMMA', Ph2.para.interval = c(0.1, 10)){
+		
+		
+		p <- nom.gamma - gamma.f(simulated.alpha = simulated.alpha, L = L, U = U, nom.alpha = nom.alpha, nom.gamma = nom.gamma, m = m, n = n, sim.alpha = sim.alpha, sim.gamma = sim.gamma, 
+							method.option = method.option, 	PH1.rgamma.shape = PH1.rgamma.shape, PH1.rgamma.scale = PH1.rgamma.scale, PH2.rgamma.shape = PH2.rgamma.shape, 
+						PH2.rgamma.scale = PH2.rgamma.scale, Ph2.dist.option = Ph2.dist.option, Ph2.para.interval = Ph2.para.interval)
+		
+		cat('p', '\n')
+		
+		return(p)
+		
+		
+	}
+	
+	uniroot(root.finding.alpha.f, interval = c(0.00001, 0.99999), L = NA, U = NA, nom.alpha = 0.1, nom.gamma = 0.9, m = 20, n = 5, sim.alpha = 1000, sim.gamma = 1000, method.option = 'KMM', 
+						PH1.rgamma.shape = (n - 1) / 2, PH1.rgamma.scale = 2, PH2.rgamma.shape = PH1.rgamma.shape, 
+						PH2.rgamma.scale = PH1.rgamma.scale, Ph2.dist.option = 'GAMMA', Ph2.para.interval = c(0.1, 10))
+	
+	
+	cl <- makeCluster(core)                                                 
+	#make a cluster for parallel
+		
+	L <- NULL
+	U <- NULL
+											
+	if (method.option == 'EXACT'){
+			
+		limits <- EX.find_alpha_star(m = m,n = n,alpha = nom.alpha,nom_gamma = nom.gamma)
+		
+		L <- limits[2]
+		U <- limits[3]
+				
+	} else if (method.option == 'CE'){
+				
+		limits <- CE.find_alpha_star(m = m,n = n,alpha = nom.alpha, gamma = nom.gamma)
+		
+		L <- limits[2]
+		U <- limits[3]
+			
+	}
+	
+	
+	
+	clusterExport(cl, c('L', 'U', 'nom.alpha', 'nom.gamma', 'm', 'n', 'method.option', 'sim.alpha', 
+        'sim.gamma', 'gamma.f', 'inner.loop.f', 'PH1.rgamma.shape', 'PH1.rgamma.scale', 'PH2.rgamma.shape', 'PH2.rgamma.scale', 'Ph2.dist.option', 'Ph2.para.interval', 'Ph2.para.interval'), envir = environment())
+	
+	clusterExport(cl, c('secantc', 'secant', 'gamma_val', 'EX.find_alpha_star', 'secant.method', 'WH_gamma_approx', 'CE.find_alpha_star', 'kappa.f', 'lambda.f', 'logsigma2.f'))
+	
+	#load variables into the cluster
+	
+	
+	#debug(gamma.f)
+	#debug(inner.loop.f)
+	gamma.vec <- unlist(parLapplyLB(										
+					cl,
+				#unlist(lapply(
+					1:sim,                                            		
+					function(X) {                                           
+						gamma.f(
+							L = L, U = U, nom.alpha = nom.alpha, nom.gamma = nom.gamma, m = m, n = n, sim.alpha = sim.alpha, sim.gamma = sim.gamma, method.option = method.option, 
+							PH1.rgamma.shape = PH1.rgamma.shape, PH1.rgamma.scale = PH1.rgamma.scale, PH2.rgamma.shape = PH2.rgamma.shape, 
+							PH2.rgamma.scale = PH2.rgamma.scale, Ph2.dist.option = Ph2.dist.option, Ph2.para.interval = Ph2.para.interval)
+						#main function to calculate gamma
+					}                                                       
+				))                                                          
+				
+	#parallelly calcualte gamma
+	#specify cluster
+	#sequentially input the computational process
+				
+	                                                                        
+	stopCluster(cl)
+	#shut down cluster when the computation finished
+	                                                                        
+	result <- list(                                                         
+			gamma.mean = mean(gamma.vec), 									
+			gamma.sd = sd(gamma.vec), 										
+			gamma.percentile = quantile(gamma.vec, c(0, 0.01, 0.05, 0.1, 0.2, 0.25, 0.5, 0.75, 0.8, 0.9, 0.95, 0.99, 1)),
+            gamma.vec = gamma.vec
+		)
+	#return result including mean, standard deviation	
+	#and 0%, 1%, 5%, 10%, 20%, 25%, 50%, 75%, 80%, 90%,
+	#95%, 99%, 100% percentiles
+	
+	
+	return(result)
+
+}
+
+
+
+
+
+
+
+
+
+
 
 #########################################################################################################################################################################
 
