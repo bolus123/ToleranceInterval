@@ -215,7 +215,7 @@ gamma.sim <- function(nom.alpha = 0.1, nom.gamma = 0.9, m = 20, n = 5, sim = 100
 #debug(gamma.sim)
 
 gamma.sim.vec <- function(nom.alpha = 0.1, nom.gamma = 0.9, m = 20, n = 5, sim = 1000, sim.alpha = 1000, sim.gamma = 1000, method.option = 'KMM',
-					  PH1.rgamma.shape = (n - 1) / 2, PH1.rgamma.scale = 2, PH2.rgamma.shape = PH1.rgamma.shape, PH2.rgamma.scale = PH1.rgamma.scale, Ph2.dist.option = FALSE, Ph2.para.interval = c(0.1, 10), core = 2) {
+					  PH1.rgamma.shape = (n - 1) / 2, PH1.rgamma.scale = 2, PH2.rgamma.shape = PH1.rgamma.shape, PH2.rgamma.scale = PH1.rgamma.scale, Ph2.dist.option = 'GAMMA', Ph2.para.interval = c(0.1, 10), core = 2) {
     result <- gamma.sim(nom.alpha, nom.gamma, m, n, sim, sim.alpha, sim.gamma, method.option, PH1.rgamma.shape, PH1.rgamma.scale, 
 						PH2.rgamma.shape, PH2.rgamma.scale, Ph2.dist.option, Ph2.para.interval, core)$gamma.mean
     return(result)
@@ -233,7 +233,7 @@ gamma.sim.vec <- Vectorize(gamma.sim.vec, vectorize.args = c('nom.alpha', 'nom.g
 
 
 
-alpha.sim <- function(nom.alpha = 0.1, nom.gamma = 0.9, m = 20, n = 5, sim = 1000, sim.alpha = 1000, sim.gamma = 1000, method.option = 'KMM', 
+alpha.sim <- function(interval.alpha = c(0.000001, 0.999999), nom.alpha = 0.1, nom.gamma = 0.9, m = 20, n = 5, sim = 1000, sim.alpha = 1000, sim.gamma = 1000, method.option = 'KMM', 
 					  PH1.rgamma.shape = (n - 1) / 2, PH1.rgamma.scale = 2, PH2.rgamma.shape = PH1.rgamma.shape, PH2.rgamma.scale = PH1.rgamma.scale, 
 					  Ph2.dist.option = 'GAMMA', Ph2.para.interval = c(0.1, 10), core = 2) {
 	
@@ -258,7 +258,7 @@ alpha.sim <- function(nom.alpha = 0.1, nom.gamma = 0.9, m = 20, n = 5, sim = 100
 	#calculate the subgroups' variances
 	#calculate the mean of  variances																			
 	#
- 
+		
 		S2 <- matrix(rgamma(m * sim.gamma, shape = PH1.rgamma.shape, scale = PH1.rgamma.scale), nrow = m, ncol = sim.gamma) / (n - 1)
 		
 		S2p <- colMeans(S2)
@@ -332,16 +332,23 @@ alpha.sim <- function(nom.alpha = 0.1, nom.gamma = 0.9, m = 20, n = 5, sim = 100
 							method.option = method.option, 	PH1.rgamma.shape = PH1.rgamma.shape, PH1.rgamma.scale = PH1.rgamma.scale, PH2.rgamma.shape = PH2.rgamma.shape, 
 						PH2.rgamma.scale = PH2.rgamma.scale, Ph2.dist.option = Ph2.dist.option, Ph2.para.interval = Ph2.para.interval)
 		
-		cat('p', '\n')
+		cat(p, '\n')
 		
 		return(p)
 		
 		
 	}
 	
-	uniroot(root.finding.alpha.f, interval = c(0.00001, 0.99999), L = NA, U = NA, nom.alpha = 0.1, nom.gamma = 0.9, m = 20, n = 5, sim.alpha = 1000, sim.gamma = 1000, method.option = 'KMM', 
+	alpha.f <- function(interval.alpha = c(0.000001, 0.999999), L = NA, U = NA, nom.alpha = 0.1, nom.gamma = 0.9, m = 20, n = 5, sim.alpha = 1000, sim.gamma = 1000, method.option = 'KMM', 
 						PH1.rgamma.shape = (n - 1) / 2, PH1.rgamma.scale = 2, PH2.rgamma.shape = PH1.rgamma.shape, 
-						PH2.rgamma.scale = PH1.rgamma.scale, Ph2.dist.option = 'GAMMA', Ph2.para.interval = c(0.1, 10))
+						PH2.rgamma.scale = PH1.rgamma.scale, Ph2.dist.option = 'GAMMA', Ph2.para.interval = c(0.1, 10)) {
+		
+		
+		uniroot(root.finding.alpha.f, interval = interval.alpha,L = L, U = U, nom.alpha = nom.alpha, nom.gamma = nom.gamma, m = m, n = n, sim.alpha = sim.alpha, sim.gamma = sim.gamma, 
+				method.option = method.option, PH1.rgamma.shape = PH1.rgamma.shape, PH1.rgamma.scale = PH1.rgamma.scale, PH2.rgamma.shape = PH2.rgamma.shape, 
+						PH2.rgamma.scale = PH2.rgamma.scale, Ph2.dist.option = Ph2.dist.option, Ph2.para.interval =Ph2.para.interval)$root
+		
+	}
 	
 	
 	cl <- makeCluster(core)                                                 
@@ -369,7 +376,8 @@ alpha.sim <- function(nom.alpha = 0.1, nom.gamma = 0.9, m = 20, n = 5, sim = 100
 	
 	
 	clusterExport(cl, c('L', 'U', 'nom.alpha', 'nom.gamma', 'm', 'n', 'method.option', 'sim.alpha', 
-        'sim.gamma', 'gamma.f', 'inner.loop.f', 'PH1.rgamma.shape', 'PH1.rgamma.scale', 'PH2.rgamma.shape', 'PH2.rgamma.scale', 'Ph2.dist.option', 'Ph2.para.interval', 'Ph2.para.interval'), envir = environment())
+        'sim.gamma', 'gamma.f', 'inner.loop.f', 'root.finding.alpha.f', 'alpha.f',
+		'PH1.rgamma.shape', 'PH1.rgamma.scale', 'PH2.rgamma.shape', 'PH2.rgamma.scale', 'Ph2.dist.option', 'Ph2.para.interval', 'Ph2.para.interval'), envir = environment())
 	
 	clusterExport(cl, c('secantc', 'secant', 'gamma_val', 'EX.find_alpha_star', 'secant.method', 'WH_gamma_approx', 'CE.find_alpha_star', 'kappa.f', 'lambda.f', 'logsigma2.f'))
 	
@@ -378,12 +386,12 @@ alpha.sim <- function(nom.alpha = 0.1, nom.gamma = 0.9, m = 20, n = 5, sim = 100
 	
 	#debug(gamma.f)
 	#debug(inner.loop.f)
-	gamma.vec <- unlist(parLapplyLB(										
+	alpha.vec <- unlist(parLapplyLB(										
 					cl,
 				#unlist(lapply(
 					1:sim,                                            		
 					function(X) {                                           
-						gamma.f(
+						alpha.f(interval.alpha,
 							L = L, U = U, nom.alpha = nom.alpha, nom.gamma = nom.gamma, m = m, n = n, sim.alpha = sim.alpha, sim.gamma = sim.gamma, method.option = method.option, 
 							PH1.rgamma.shape = PH1.rgamma.shape, PH1.rgamma.scale = PH1.rgamma.scale, PH2.rgamma.shape = PH2.rgamma.shape, 
 							PH2.rgamma.scale = PH2.rgamma.scale, Ph2.dist.option = Ph2.dist.option, Ph2.para.interval = Ph2.para.interval)
@@ -400,10 +408,10 @@ alpha.sim <- function(nom.alpha = 0.1, nom.gamma = 0.9, m = 20, n = 5, sim = 100
 	#shut down cluster when the computation finished
 	                                                                        
 	result <- list(                                                         
-			gamma.mean = mean(gamma.vec), 									
-			gamma.sd = sd(gamma.vec), 										
-			gamma.percentile = quantile(gamma.vec, c(0, 0.01, 0.05, 0.1, 0.2, 0.25, 0.5, 0.75, 0.8, 0.9, 0.95, 0.99, 1)),
-            gamma.vec = gamma.vec
+			alpha.mean = mean(alpha.vec), 									
+			alpha.sd = sd(alpha.vec), 										
+			alpha.percentile = quantile(alpha.vec, c(0, 0.01, 0.05, 0.1, 0.2, 0.25, 0.5, 0.75, 0.8, 0.9, 0.95, 0.99, 1)),
+            alpha.vec = alpha.vec
 		)
 	#return result including mean, standard deviation	
 	#and 0%, 1%, 5%, 10%, 20%, 25%, 50%, 75%, 80%, 90%,
@@ -416,17 +424,492 @@ alpha.sim <- function(nom.alpha = 0.1, nom.gamma = 0.9, m = 20, n = 5, sim = 100
 
 
 
+#alpha.sim(interval.alpha = c(0.000001, 0.999999), nom.alpha = 0.1, nom.gamma = 0.9, m = 20, n = 5, sim = 1000, sim.alpha = 1000, sim.gamma = 1000, method.option = 'KMM', core = 2)
+
+alpha.sim.vec <- function(interval.alpha = c(0.000001, 0.999999), nom.alpha = 0.1, nom.gamma = 0.9, m = 20, n = 5, sim = 1000, sim.alpha = 1000, sim.gamma = 1000, method.option = 'KMM',
+					  PH1.rgamma.shape = (n - 1) / 2, PH1.rgamma.scale = 2, PH2.rgamma.shape = PH1.rgamma.shape, PH2.rgamma.scale = PH1.rgamma.scale, Ph2.dist.option = 'GAMMA', Ph2.para.interval = c(0.1, 10), core = 2) {
+    result <- alpha.sim(interval.alpha, nom.alpha, nom.gamma, m, n, sim, sim.alpha, sim.gamma, method.option, PH1.rgamma.shape, PH1.rgamma.scale, 
+						PH2.rgamma.shape, PH2.rgamma.scale, Ph2.dist.option, Ph2.para.interval, core)$alpha.mean
+    return(result)
+}
+
+alpha.sim.vec <- Vectorize(alpha.sim.vec, vectorize.args = c('nom.alpha', 'nom.gamma', 'm', 'n', 'sim', 'sim.alpha', 'sim.gamma',
+					  'PH1.rgamma.shape', 'PH1.rgamma.scale', 'PH2.rgamma.shape', 'PH2.rgamma.scale'))
 
 
+#########################################################################################################################################################################
+
+#alpha simulation for KMM
+
+#########################################################################################################################################################################
+
+sim.vec <- 1000
+sim.alpha.vec <- c(100, 250, 500, 1000)
+#sim.alpha.vec <- c(100)
+sim.gamma.vec <- 250
+
+alpha.vec <- c(0.05, 0.1)
+gamma.vec <- c(0.9, 0.95)
+
+m.vec <- c(10, 25, 50, 75, 100, 250)
+#m.vec <- c(10, 25)
+n.vec <- c(5, 10)
+
+shift.vec <- seq(-0.25, 0.25, 0.25)
+#shift.vec <- 0
+
+pars.mat <- expand.grid(sim.vec, sim.gamma.vec, sim.alpha.vec, alpha.vec, gamma.vec, m.vec, n.vec, shift.vec)
+
+pars.mat1 <- cbind(pars.mat, (pars.mat[, 7] - 1) / 2, 2, (pars.mat[, 7] - 1) / 2 * (1 + pars.mat[, 8]), 2)
+pars.mat2 <- cbind(pars.mat, (pars.mat[, 7] - 1) / 2, 2, (pars.mat[, 7] - 1) / 2, 2 * (1 + pars.mat[, 8]))
+
+pars.mat3 <- cbind(pars.mat, (pars.mat[, 7] - 1) / 2 * (1 + pars.mat[, 8]), 2, (pars.mat[, 7] - 1) / 2, 2)
+pars.mat4 <- cbind(pars.mat, (pars.mat[, 7] - 1) / 2, 2 * (1 + pars.mat[, 8]), (pars.mat[, 7] - 1) / 2, 2)
+
+nn <- dim(pars.mat1)[1]
+mm <- dim(pars.mat1)[2]
+
+result1 <- cbind(pars.mat1, NA)
+result2 <- cbind(pars.mat2, NA)
+result3 <- cbind(pars.mat3, NA)
+result4 <- cbind(pars.mat4, NA)
+
+result1[, mm + 1] <- alpha.sim.vec(
+				nom.alpha = pars.mat1[, 4], 
+				nom.gamma = pars.mat1[, 5], 
+				m = pars.mat1[, 6], 
+				n = pars.mat1[, 7], 
+				sim = pars.mat1[, 1], 
+				sim.alpha = pars.mat1[, 2], 
+				sim.gamma = pars.mat1[, 3], 
+			  	PH1.rgamma.shape = pars.mat1[, 9], 
+				PH1.rgamma.scale = pars.mat1[, 10], 
+				PH2.rgamma.shape = pars.mat1[, 11], 
+				PH2.rgamma.scale = pars.mat1[, 12], 
+				method.option = 'KMM',
+				core = 6
+) 
+
+save(result1, file = '/home/yyao17/Documents/ToleranceInterval/alpha.simulation.result1.KMM.Rdata')
+
+result2[, mm + 1] <- alpha.sim.vec(
+				nom.alpha = pars.mat2[, 4], 
+				nom.gamma = pars.mat2[, 5], 
+				m = pars.mat2[, 6], 
+				n = pars.mat2[, 7], 
+				sim = pars.mat2[, 1], 
+				sim.alpha = pars.mat2[, 2], 
+				sim.gamma = pars.mat2[, 3], 
+			  	PH1.rgamma.shape = pars.mat2[, 9], 
+				PH1.rgamma.scale = pars.mat2[, 10], 
+				PH2.rgamma.shape = pars.mat2[, 11], 
+				PH2.rgamma.scale = pars.mat2[, 12], 
+				method.option = 'KMM',
+				core = 6
+) 
+
+save(result2, file = '/home/yyao17/Documents/ToleranceInterval/alpha.simulation.result2.KMM.Rdata')
+
+result3[, mm + 1] <- alpha.sim.vec(
+				nom.alpha = pars.mat3[, 4], 
+				nom.gamma = pars.mat3[, 5], 
+				m = pars.mat3[, 6], 
+				n = pars.mat3[, 7], 
+				sim = pars.mat3[, 1], 
+				sim.alpha = pars.mat3[, 2], 
+				sim.gamma = pars.mat3[, 3], 
+			  	PH1.rgamma.shape = pars.mat3[, 9], 
+				PH1.rgamma.scale = pars.mat3[, 10], 
+				PH2.rgamma.shape = pars.mat3[, 11], 
+				PH2.rgamma.scale = pars.mat3[, 12], 
+				method.option = 'KMM',
+				core = 6
+) 
+
+save(result3, file = '/home/yyao17/Documents/ToleranceInterval/alpha.simulation.result3.KMM.Rdata')
+
+result4[, mm + 1] <- alpha.sim.vec(
+				nom.alpha = pars.mat4[, 4], 
+				nom.gamma = pars.mat4[, 5], 
+				m = pars.mat4[, 6], 
+				n = pars.mat4[, 7], 
+				sim = pars.mat4[, 1], 
+				sim.alpha = pars.mat4[, 2], 
+				sim.gamma = pars.mat4[, 3], 
+			  	PH1.rgamma.shape = pars.mat4[, 9], 
+				PH1.rgamma.scale = pars.mat4[, 10], 
+				PH2.rgamma.shape = pars.mat4[, 11], 
+				PH2.rgamma.scale = pars.mat4[, 12], 
+				method.option = 'KMM',
+				core = 6
+) 
+
+save(result4, file = '/home/yyao17/Documents/ToleranceInterval/alpha.simulation.result4.KMM.Rdata')
 
 
+#########################################################################################################################################################################
 
+#alpha simulation for CE
+
+#########################################################################################################################################################################
+
+sim.vec <- 1000
+sim.alpha.vec <- c(100, 250, 500, 1000)
+#sim.alpha.vec <- c(100)
+sim.gamma.vec <- 250
+
+alpha.vec <- c(0.05, 0.1)
+gamma.vec <- c(0.9, 0.95)
+
+m.vec <- c(10, 25, 50, 75, 100, 250)
+#m.vec <- c(10, 25)
+n.vec <- c(5, 10)
+
+shift.vec <- seq(-0.25, 0.25, 0.25)
+#shift.vec <- 0
+
+pars.mat <- expand.grid(sim.vec, sim.gamma.vec, sim.alpha.vec, alpha.vec, gamma.vec, m.vec, n.vec, shift.vec)
+
+pars.mat1 <- cbind(pars.mat, (pars.mat[, 7] - 1) / 2, 2, (pars.mat[, 7] - 1) / 2 * (1 + pars.mat[, 8]), 2)
+pars.mat2 <- cbind(pars.mat, (pars.mat[, 7] - 1) / 2, 2, (pars.mat[, 7] - 1) / 2, 2 * (1 + pars.mat[, 8]))
+
+pars.mat3 <- cbind(pars.mat, (pars.mat[, 7] - 1) / 2 * (1 + pars.mat[, 8]), 2, (pars.mat[, 7] - 1) / 2, 2)
+pars.mat4 <- cbind(pars.mat, (pars.mat[, 7] - 1) / 2, 2 * (1 + pars.mat[, 8]), (pars.mat[, 7] - 1) / 2, 2)
+
+nn <- dim(pars.mat1)[1]
+mm <- dim(pars.mat1)[2]
+
+result1 <- cbind(pars.mat1, NA)
+result2 <- cbind(pars.mat2, NA)
+result3 <- cbind(pars.mat3, NA)
+result4 <- cbind(pars.mat4, NA)
+
+result1[, mm + 1] <- alpha.sim.vec(
+				nom.alpha = pars.mat1[, 4], 
+				nom.gamma = pars.mat1[, 5], 
+				m = pars.mat1[, 6], 
+				n = pars.mat1[, 7], 
+				sim = pars.mat1[, 1], 
+				sim.alpha = pars.mat1[, 2], 
+				sim.gamma = pars.mat1[, 3], 
+			  	PH1.rgamma.shape = pars.mat1[, 9], 
+				PH1.rgamma.scale = pars.mat1[, 10], 
+				PH2.rgamma.shape = pars.mat1[, 11], 
+				PH2.rgamma.scale = pars.mat1[, 12], 
+				method.option = 'CE',
+				core = 6
+) 
+
+save(result1, file = '/home/yyao17/Documents/ToleranceInterval/alpha.simulation.result1.CE.Rdata')
+
+result2[, mm + 1] <- alpha.sim.vec(
+				nom.alpha = pars.mat2[, 4], 
+				nom.gamma = pars.mat2[, 5], 
+				m = pars.mat2[, 6], 
+				n = pars.mat2[, 7], 
+				sim = pars.mat2[, 1], 
+				sim.alpha = pars.mat2[, 2], 
+				sim.gamma = pars.mat2[, 3], 
+			  	PH1.rgamma.shape = pars.mat2[, 9], 
+				PH1.rgamma.scale = pars.mat2[, 10], 
+				PH2.rgamma.shape = pars.mat2[, 11], 
+				PH2.rgamma.scale = pars.mat2[, 12], 
+				method.option = 'CE',
+				core = 6
+) 
+
+save(result2, file = '/home/yyao17/Documents/ToleranceInterval/alpha.simulation.result2.CE.Rdata')
+
+result3[, mm + 1] <- alpha.sim.vec(
+				nom.alpha = pars.mat3[, 4], 
+				nom.gamma = pars.mat3[, 5], 
+				m = pars.mat3[, 6], 
+				n = pars.mat3[, 7], 
+				sim = pars.mat3[, 1], 
+				sim.alpha = pars.mat3[, 2], 
+				sim.gamma = pars.mat3[, 3], 
+			  	PH1.rgamma.shape = pars.mat3[, 9], 
+				PH1.rgamma.scale = pars.mat3[, 10], 
+				PH2.rgamma.shape = pars.mat3[, 11], 
+				PH2.rgamma.scale = pars.mat3[, 12], 
+				method.option = 'CE',
+				core = 6
+) 
+
+save(result3, file = '/home/yyao17/Documents/ToleranceInterval/alpha.simulation.result3.CE.Rdata')
+
+result4[, mm + 1] <- alpha.sim.vec(
+				nom.alpha = pars.mat4[, 4], 
+				nom.gamma = pars.mat4[, 5], 
+				m = pars.mat4[, 6], 
+				n = pars.mat4[, 7], 
+				sim = pars.mat4[, 1], 
+				sim.alpha = pars.mat4[, 2], 
+				sim.gamma = pars.mat4[, 3], 
+			  	PH1.rgamma.shape = pars.mat4[, 9], 
+				PH1.rgamma.scale = pars.mat4[, 10], 
+				PH2.rgamma.shape = pars.mat4[, 11], 
+				PH2.rgamma.scale = pars.mat4[, 12], 
+				method.option = 'CE',
+				core = 6
+) 
+
+save(result4, file = '/home/yyao17/Documents/ToleranceInterval/alpha.simulation.result4.CE.Rdata')
 
 
 
 #########################################################################################################################################################################
 
-#simulation for KMM
+#alpha simulation for CE
+
+#########################################################################################################################################################################
+
+sim.vec <- 1000
+sim.alpha.vec <- c(100, 250, 500, 1000)
+#sim.alpha.vec <- c(100)
+sim.gamma.vec <- 250
+
+alpha.vec <- c(0.05, 0.1)
+gamma.vec <- c(0.9, 0.95)
+
+m.vec <- c(10, 25, 50, 75, 100, 250)
+#m.vec <- c(10, 25)
+n.vec <- c(5, 10)
+
+shift.vec <- seq(-0.25, 0.25, 0.25)
+#shift.vec <- 0
+
+pars.mat <- expand.grid(sim.vec, sim.gamma.vec, sim.alpha.vec, alpha.vec, gamma.vec, m.vec, n.vec, shift.vec)
+
+pars.mat1 <- cbind(pars.mat, (pars.mat[, 7] - 1) / 2, 2, (pars.mat[, 7] - 1) / 2 * (1 + pars.mat[, 8]), 2)
+pars.mat2 <- cbind(pars.mat, (pars.mat[, 7] - 1) / 2, 2, (pars.mat[, 7] - 1) / 2, 2 * (1 + pars.mat[, 8]))
+
+pars.mat3 <- cbind(pars.mat, (pars.mat[, 7] - 1) / 2 * (1 + pars.mat[, 8]), 2, (pars.mat[, 7] - 1) / 2, 2)
+pars.mat4 <- cbind(pars.mat, (pars.mat[, 7] - 1) / 2, 2 * (1 + pars.mat[, 8]), (pars.mat[, 7] - 1) / 2, 2)
+
+nn <- dim(pars.mat1)[1]
+mm <- dim(pars.mat1)[2]
+
+result1 <- cbind(pars.mat1, NA)
+result2 <- cbind(pars.mat2, NA)
+result3 <- cbind(pars.mat3, NA)
+result4 <- cbind(pars.mat4, NA)
+
+result1[, mm + 1] <- alpha.sim.vec(
+				nom.alpha = pars.mat1[, 4], 
+				nom.gamma = pars.mat1[, 5], 
+				m = pars.mat1[, 6], 
+				n = pars.mat1[, 7], 
+				sim = pars.mat1[, 1], 
+				sim.alpha = pars.mat1[, 2], 
+				sim.gamma = pars.mat1[, 3], 
+			  	PH1.rgamma.shape = pars.mat1[, 9], 
+				PH1.rgamma.scale = pars.mat1[, 10], 
+				PH2.rgamma.shape = pars.mat1[, 11], 
+				PH2.rgamma.scale = pars.mat1[, 12], 
+				method.option = 'EXACT',
+				core = 6
+) 
+
+save(result1, file = '/home/yyao17/Documents/ToleranceInterval/alpha.simulation.result1.EXACT.Rdata')
+
+result2[, mm + 1] <- alpha.sim.vec(
+				nom.alpha = pars.mat2[, 4], 
+				nom.gamma = pars.mat2[, 5], 
+				m = pars.mat2[, 6], 
+				n = pars.mat2[, 7], 
+				sim = pars.mat2[, 1], 
+				sim.alpha = pars.mat2[, 2], 
+				sim.gamma = pars.mat2[, 3], 
+			  	PH1.rgamma.shape = pars.mat2[, 9], 
+				PH1.rgamma.scale = pars.mat2[, 10], 
+				PH2.rgamma.shape = pars.mat2[, 11], 
+				PH2.rgamma.scale = pars.mat2[, 12], 
+				method.option = 'EXACT',
+				core = 6
+) 
+
+save(result2, file = '/home/yyao17/Documents/ToleranceInterval/alpha.simulation.result2.EXACT.Rdata')
+
+result3[, mm + 1] <- alpha.sim.vec(
+				nom.alpha = pars.mat3[, 4], 
+				nom.gamma = pars.mat3[, 5], 
+				m = pars.mat3[, 6], 
+				n = pars.mat3[, 7], 
+				sim = pars.mat3[, 1], 
+				sim.alpha = pars.mat3[, 2], 
+				sim.gamma = pars.mat3[, 3], 
+			  	PH1.rgamma.shape = pars.mat3[, 9], 
+				PH1.rgamma.scale = pars.mat3[, 10], 
+				PH2.rgamma.shape = pars.mat3[, 11], 
+				PH2.rgamma.scale = pars.mat3[, 12], 
+				method.option = 'EXACT',
+				core = 6
+) 
+
+save(result3, file = '/home/yyao17/Documents/ToleranceInterval/alpha.simulation.result3.EXACT.Rdata')
+
+result4[, mm + 1] <- alpha.sim.vec(
+				nom.alpha = pars.mat4[, 4], 
+				nom.gamma = pars.mat4[, 5], 
+				m = pars.mat4[, 6], 
+				n = pars.mat4[, 7], 
+				sim = pars.mat4[, 1], 
+				sim.alpha = pars.mat4[, 2], 
+				sim.gamma = pars.mat4[, 3], 
+			  	PH1.rgamma.shape = pars.mat4[, 9], 
+				PH1.rgamma.scale = pars.mat4[, 10], 
+				PH2.rgamma.shape = pars.mat4[, 11], 
+				PH2.rgamma.scale = pars.mat4[, 12], 
+				method.option = 'EXACT',
+				core = 6
+) 
+
+save(result4, file = '/home/yyao17/Documents/ToleranceInterval/alpha.simulation.result4.EXACT.Rdata')
+
+
+################################### alpha Ph2.dist under Weibull ###################################
+
+sim.vec <- 1000
+sim.alpha.vec <- c(100, 250, 500, 1000)
+#sim.alpha.vec <- c(100)
+sim.gamma.vec <- 250
+
+alpha.vec <- c(0.05, 0.1)
+gamma.vec <- c(0.9, 0.95)
+
+m.vec <- c(10, 25, 50, 75, 100, 250)
+#m.vec <- c(250)
+n.vec <- c(5, 10)
+
+pars.mat <- expand.grid(sim.vec, sim.gamma.vec, sim.alpha.vec, alpha.vec, gamma.vec, m.vec, n.vec)
+
+nn <- dim(pars.mat)[1]
+mm <- dim(pars.mat)[2]
+
+result1 <- cbind(pars.mat, NA)
+result2 <- cbind(pars.mat, NA)
+result3 <- cbind(pars.mat, NA)
+
+result1[, mm + 1] <- alpha.sim.vec(
+				nom.alpha = pars.mat[, 4], 
+				nom.gamma = pars.mat[, 5], 
+				m = pars.mat[, 6], 
+				n = pars.mat[, 7], 
+				sim = pars.mat[, 1], 
+				sim.alpha = pars.mat[, 2], 
+				sim.gamma = pars.mat[, 3], 
+				method.option = 'EXACT',
+				Ph2.dist.option = 'WEIBULL',
+				core = 6
+) 
+
+save(result1, file = '/home/yyao17/Documents/ToleranceInterval/alpha.simulation.result1.EXACT.WEIBULL.Rdata')
+
+result2[, mm + 1] <- alpha.sim.vec(
+				nom.alpha = pars.mat[, 4], 
+				nom.gamma = pars.mat[, 5], 
+				m = pars.mat[, 6], 
+				n = pars.mat[, 7], 
+				sim = pars.mat[, 1], 
+				sim.alpha = pars.mat[, 2], 
+				sim.gamma = pars.mat[, 3], 
+				method.option = 'CE',
+				Ph2.dist.option = 'WEIBULL',
+				core = 6
+) 
+
+save(result2, file = '/home/yyao17/Documents/ToleranceInterval/alpha.simulation.result2.CE.WEIBULL.Rdata')
+
+result3[, mm + 1] <- alpha.sim.vec(
+				nom.alpha = pars.mat[, 4], 
+				nom.gamma = pars.mat[, 5], 
+				m = pars.mat[, 6], 
+				n = pars.mat[, 7], 
+				sim = pars.mat[, 1], 
+				sim.alpha = pars.mat[, 2], 
+				sim.gamma = pars.mat[, 3], 
+				method.option = 'KMM',
+				Ph2.dist.option = 'WEIBULL',
+				core = 6
+) 
+
+save(result3, file = '/home/yyao17/Documents/ToleranceInterval/alpha.simulation.result3.KMM.WEIBULL.Rdata')
+
+
+
+################################### alpha Ph2.dist under Lognormal ###################################
+
+sim.vec <- 1000
+sim.alpha.vec <- c(100, 250, 500, 1000)
+#sim.alpha.vec <- c(100)
+sim.gamma.vec <- 250
+
+alpha.vec <- c(0.05, 0.1)
+gamma.vec <- c(0.9, 0.95)
+
+m.vec <- c(10, 25, 50, 75, 100, 250)
+#m.vec <- c(250)
+n.vec <- c(5, 10)
+
+pars.mat <- expand.grid(sim.vec, sim.gamma.vec, sim.alpha.vec, alpha.vec, gamma.vec, m.vec, n.vec)
+
+nn <- dim(pars.mat)[1]
+mm <- dim(pars.mat)[2]
+
+result1 <- cbind(pars.mat, NA)
+result2 <- cbind(pars.mat, NA)
+result3 <- cbind(pars.mat, NA)
+
+result1[, mm + 1] <- alpha.sim.vec(
+				nom.alpha = pars.mat[, 4], 
+				nom.gamma = pars.mat[, 5], 
+				m = pars.mat[, 6], 
+				n = pars.mat[, 7], 
+				sim = pars.mat[, 1], 
+				sim.alpha = pars.mat[, 2], 
+				sim.gamma = pars.mat[, 3], 
+				method.option = 'EXACT',
+				Ph2.dist.option = 'LOGNORMAL',
+				core = 6
+) 
+
+save(result1, file = '/home/yyao17/Documents/ToleranceInterval/alpha.simulation.result1.EXACT.LOGNORMAL.Rdata')
+
+result2[, mm + 1] <- alpha.sim.vec(
+				nom.alpha = pars.mat[, 4], 
+				nom.gamma = pars.mat[, 5], 
+				m = pars.mat[, 6], 
+				n = pars.mat[, 7], 
+				sim = pars.mat[, 1], 
+				sim.alpha = pars.mat[, 2], 
+				sim.gamma = pars.mat[, 3], 
+				method.option = 'CE',
+				Ph2.dist.option = 'LOGNORMAL',
+				core = 6
+) 
+
+save(result2, file = '/home/yyao17/Documents/ToleranceInterval/alpha.simulation.result2.CE.LOGNORMAL.Rdata')
+
+result3[, mm + 1] <- alpha.sim.vec(
+				nom.alpha = pars.mat[, 4], 
+				nom.gamma = pars.mat[, 5], 
+				m = pars.mat[, 6], 
+				n = pars.mat[, 7], 
+				sim = pars.mat[, 1], 
+				sim.alpha = pars.mat[, 2], 
+				sim.gamma = pars.mat[, 3], 
+				method.option = 'KMM',
+				Ph2.dist.option = 'LOGNORMAL',
+				core = 6
+) 
+
+save(result3, file = '/home/yyao17/Documents/ToleranceInterval/alpha.simulation.result3.KMM.LOGNORMAL.Rdata')
+
+
+#########################################################################################################################################################################
+
+#gamma simulation for KMM
 
 #########################################################################################################################################################################
 #
@@ -535,7 +1018,7 @@ alpha.sim <- function(nom.alpha = 0.1, nom.gamma = 0.9, m = 20, n = 5, sim = 100
 
 #########################################################################################################################################################################
 
-#simulation for CE
+#gamma simulation for CE
 
 #########################################################################################################################################################################
 #
@@ -645,7 +1128,7 @@ alpha.sim <- function(nom.alpha = 0.1, nom.gamma = 0.9, m = 20, n = 5, sim = 100
 #
 #########################################################################################################################################################################
 
-#simulation for EXACT
+#gamma simulation for EXACT
 
 #########################################################################################################################################################################
 
@@ -755,127 +1238,128 @@ alpha.sim <- function(nom.alpha = 0.1, nom.gamma = 0.9, m = 20, n = 5, sim = 100
 
 
 ################################### Ph2.dist ###################################
-
-sim.vec <- 1000
-sim.alpha.vec <- c(100, 250, 500, 1000)
-#sim.alpha.vec <- c(100)
-sim.gamma.vec <- 250
-
-alpha.vec <- c(0.05, 0.1)
-gamma.vec <- c(0.9, 0.95)
-
-m.vec <- c(10, 25, 50, 75, 100, 250)
-#m.vec <- c(250)
-n.vec <- c(5, 10)
-
-pars.mat <- expand.grid(sim.vec, sim.gamma.vec, sim.alpha.vec, alpha.vec, gamma.vec, m.vec, n.vec)
-
-nn <- dim(pars.mat)[1]
-mm <- dim(pars.mat)[2]
-
-result1 <- cbind(pars.mat, NA)
-result2 <- cbind(pars.mat, NA)
-result3 <- cbind(pars.mat, NA)
-
-result1[, mm + 1] <- gamma.sim.vec(
-				nom.alpha = pars.mat[, 4], 
-				nom.gamma = pars.mat[, 5], 
-				m = pars.mat[, 6], 
-				n = pars.mat[, 7], 
-				sim = pars.mat[, 1], 
-				sim.alpha = pars.mat[, 2], 
-				sim.gamma = pars.mat[, 3], 
-				method.option = 'EXACT',
-				Ph2.dist.option = 'WEIBULL',
-				core = 6
-) 
-
-result2[, mm + 1] <- gamma.sim.vec(
-				nom.alpha = pars.mat[, 4], 
-				nom.gamma = pars.mat[, 5], 
-				m = pars.mat[, 6], 
-				n = pars.mat[, 7], 
-				sim = pars.mat[, 1], 
-				sim.alpha = pars.mat[, 2], 
-				sim.gamma = pars.mat[, 3], 
-				method.option = 'CE',
-				Ph2.dist.option = 'WEIBULL',
-				core = 6
-) 
-
-result3[, mm + 1] <- gamma.sim.vec(
-				nom.alpha = pars.mat[, 4], 
-				nom.gamma = pars.mat[, 5], 
-				m = pars.mat[, 6], 
-				n = pars.mat[, 7], 
-				sim = pars.mat[, 1], 
-				sim.alpha = pars.mat[, 2], 
-				sim.gamma = pars.mat[, 3], 
-				method.option = 'KMM',
-				Ph2.dist.option = 'WEIBULL',
-				core = 6
-) 
-
-
-################################### Ph2.dist ###################################
-
-sim.vec <- 1000
-sim.alpha.vec <- c(100, 250, 500, 1000)
-#sim.alpha.vec <- c(100)
-sim.gamma.vec <- 250
-
-alpha.vec <- c(0.05, 0.1)
-gamma.vec <- c(0.9, 0.95)
-
-m.vec <- c(10, 25, 50, 75, 100, 250)
-#m.vec <- c(250)
-n.vec <- c(5, 10)
-
-pars.mat <- expand.grid(sim.vec, sim.gamma.vec, sim.alpha.vec, alpha.vec, gamma.vec, m.vec, n.vec)
-
-nn <- dim(pars.mat)[1]
-mm <- dim(pars.mat)[2]
-
-result11 <- cbind(pars.mat, NA)
-result22 <- cbind(pars.mat, NA)
-result33 <- cbind(pars.mat, NA)
-
-result11[, mm + 1] <- gamma.sim.vec(
-				nom.alpha = pars.mat[, 4], 
-				nom.gamma = pars.mat[, 5], 
-				m = pars.mat[, 6], 
-				n = pars.mat[, 7], 
-				sim = pars.mat[, 1], 
-				sim.alpha = pars.mat[, 2], 
-				sim.gamma = pars.mat[, 3], 
-				method.option = 'EXACT',
-				Ph2.dist.option = 'LOGNORMAL',
-				core = 6
-) 
-
-result22[, mm + 1] <- gamma.sim.vec(
-				nom.alpha = pars.mat[, 4], 
-				nom.gamma = pars.mat[, 5], 
-				m = pars.mat[, 6], 
-				n = pars.mat[, 7], 
-				sim = pars.mat[, 1], 
-				sim.alpha = pars.mat[, 2], 
-				sim.gamma = pars.mat[, 3], 
-				method.option = 'CE',
-				Ph2.dist.option = 'LOGNORMAL',
-				core = 6
-) 
-
-result33[, mm + 1] <- gamma.sim.vec(
-				nom.alpha = pars.mat[, 4], 
-				nom.gamma = pars.mat[, 5], 
-				m = pars.mat[, 6], 
-				n = pars.mat[, 7], 
-				sim = pars.mat[, 1], 
-				sim.alpha = pars.mat[, 2], 
-				sim.gamma = pars.mat[, 3], 
-				method.option = 'KMM',
-				Ph2.dist.option = 'LOGNORMAL',
-				core = 6
-) 
-
+#
+#sim.vec <- 1000
+#sim.alpha.vec <- c(100, 250, 500, 1000)
+##sim.alpha.vec <- c(100)
+#sim.gamma.vec <- 250
+#
+#alpha.vec <- c(0.05, 0.1)
+#gamma.vec <- c(0.9, 0.95)
+#
+#m.vec <- c(10, 25, 50, 75, 100, 250)
+##m.vec <- c(250)
+#n.vec <- c(5, 10)
+#
+#pars.mat <- expand.grid(sim.vec, sim.gamma.vec, sim.alpha.vec, alpha.vec, gamma.vec, m.vec, n.vec)
+#
+#nn <- dim(pars.mat)[1]
+#mm <- dim(pars.mat)[2]
+#
+#result1 <- cbind(pars.mat, NA)
+#result2 <- cbind(pars.mat, NA)
+#result3 <- cbind(pars.mat, NA)
+#
+#result1[, mm + 1] <- gamma.sim.vec(
+#				nom.alpha = pars.mat[, 4], 
+#				nom.gamma = pars.mat[, 5], 
+#				m = pars.mat[, 6], 
+#				n = pars.mat[, 7], 
+#				sim = pars.mat[, 1], 
+#				sim.alpha = pars.mat[, 2], 
+#				sim.gamma = pars.mat[, 3], 
+#				method.option = 'EXACT',
+#				Ph2.dist.option = 'WEIBULL',
+#				core = 6
+#) 
+#
+#result2[, mm + 1] <- gamma.sim.vec(
+#				nom.alpha = pars.mat[, 4], 
+#				nom.gamma = pars.mat[, 5], 
+#				m = pars.mat[, 6], 
+#				n = pars.mat[, 7], 
+#				sim = pars.mat[, 1], 
+#				sim.alpha = pars.mat[, 2], 
+#				sim.gamma = pars.mat[, 3], 
+#				method.option = 'CE',
+#				Ph2.dist.option = 'WEIBULL',
+#				core = 6
+#) 
+#
+#result3[, mm + 1] <- gamma.sim.vec(
+#				nom.alpha = pars.mat[, 4], 
+#				nom.gamma = pars.mat[, 5], 
+#				m = pars.mat[, 6], 
+#				n = pars.mat[, 7], 
+#				sim = pars.mat[, 1], 
+#				sim.alpha = pars.mat[, 2], 
+#				sim.gamma = pars.mat[, 3], 
+#				method.option = 'KMM',
+#				Ph2.dist.option = 'WEIBULL',
+#				core = 6
+#) 
+#
+#
+#################################### Ph2.dist ###################################
+#
+#sim.vec <- 1000
+#sim.alpha.vec <- c(100, 250, 500, 1000)
+##sim.alpha.vec <- c(100)
+#sim.gamma.vec <- 250
+#
+#alpha.vec <- c(0.05, 0.1)
+#gamma.vec <- c(0.9, 0.95)
+#
+#m.vec <- c(10, 25, 50, 75, 100, 250)
+##m.vec <- c(250)
+#n.vec <- c(5, 10)
+#
+#pars.mat <- expand.grid(sim.vec, sim.gamma.vec, sim.alpha.vec, alpha.vec, gamma.vec, m.vec, n.vec)
+#
+#nn <- dim(pars.mat)[1]
+#mm <- dim(pars.mat)[2]
+#
+#result11 <- cbind(pars.mat, NA)
+#result22 <- cbind(pars.mat, NA)
+#result33 <- cbind(pars.mat, NA)
+#
+#result11[, mm + 1] <- gamma.sim.vec(
+#				nom.alpha = pars.mat[, 4], 
+#				nom.gamma = pars.mat[, 5], 
+#				m = pars.mat[, 6], 
+#				n = pars.mat[, 7], 
+#				sim = pars.mat[, 1], 
+#				sim.alpha = pars.mat[, 2], 
+#				sim.gamma = pars.mat[, 3], 
+#				method.option = 'EXACT',
+#				Ph2.dist.option = 'LOGNORMAL',
+#				core = 6
+#) 
+#
+#result22[, mm + 1] <- gamma.sim.vec(
+#				nom.alpha = pars.mat[, 4], 
+#				nom.gamma = pars.mat[, 5], 
+#				m = pars.mat[, 6], 
+#				n = pars.mat[, 7], 
+#				sim = pars.mat[, 1], 
+#				sim.alpha = pars.mat[, 2], 
+#				sim.gamma = pars.mat[, 3], 
+#				method.option = 'CE',
+#				Ph2.dist.option = 'LOGNORMAL',
+#				core = 6
+#) 
+#
+#result33[, mm + 1] <- gamma.sim.vec(
+#				nom.alpha = pars.mat[, 4], 
+#				nom.gamma = pars.mat[, 5], 
+#				m = pars.mat[, 6], 
+#				n = pars.mat[, 7], 
+#				sim = pars.mat[, 1], 
+#				sim.alpha = pars.mat[, 2], 
+#				sim.gamma = pars.mat[, 3], 
+#				method.option = 'KMM',
+#				Ph2.dist.option = 'LOGNORMAL',
+#				core = 6
+#) 
+#
+#
