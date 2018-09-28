@@ -1,0 +1,169 @@
+#Calculating gamma with parallel technique by simulation
+#author: Yuhui Yao
+#version: 0.91
+#update: 9.19.2018
+#########################################################################################################################################################################
+
+src.code.addr <- 'https://raw.githubusercontent.com/bolus123/ToleranceInterval/master/'
+
+#########################################################################################################################################################################
+
+require(parallel)                                                                              
+
+K.factor <- tolerance::K.factor
+
+#########################################################################################################################################################################
+
+source(file = paste(src.code.addr, 'Exact_TI_S2_alpha_star.R', sep = ''))
+source(file = paste(src.code.addr, 'CE_Method_TI_S2.R', sep = ''))
+
+EX.find_alpha_star <- find_alpha_star
+CE.find_alpha_star <- find1_alpha_star
+
+#########################################################################################################################################################################
+
+
+kappa.f <- function(n, interval = c(0.1, 10)) {
+
+    kappa.solution.f <- function(k) {1 / beta(1 + 1/k, 1 + 1/k) / (1 + 2/k)}
+    root.finding.f <- function(k, n) {(n + 1) / (n - 1) - kappa.solution.f(k)}
+    
+    uniroot(root.finding.f, interval = interval, n = n)$root
+
+}
+
+lambda.f <- function(n, kappa) {(n - 1) / gamma(1 + 1/kappa)}
+
+logsigma2.f <- function(n, interval = c(0.1, 10)) {
+
+    logmu.f <- function(logsigma2, n) {
+        log(n - 1) - logsigma2 / 2
+    }
+    
+    root.finding.f <- function(logsigma2, n) {
+    
+        2 * (n - 1) - (exp(logsigma2) - 1) * exp(2 * logmu.f(logsigma2, n) + logsigma2)
+    
+    }
+    
+    logsigma2 <- uniroot(root.finding.f, interval = interval, n = n)$root
+    
+    c(logmu.f(logsigma2, n), logsigma2)
+
+}
+
+#########################################################################################################################################################################
+
+gamma.f <- function(nom.alpha = 0.1, nom.gamma = 0.9, m = 20, n = 5, sim = 1000, sim.gamma = 1000, method.option = 'KMM', 
+					  Y.rgamma.shape = (n - 1) / 2, Y.rgamma.scale = 2, W.rgamma.shape = Y.rgamma.shape, W.rgamma.scale = Y.rgamma.scale, 
+					  W.dist.option = 'GAMMA', W.para.interval = c(0.1, 10)) {
+	
+	inner.loop.f <- function(S2p, L = NA, U = NA, nom.alpha = 0.1, W.rgamma.shape = Y.rgamma.shape, W.rgamma.scale = Y.rgamma.scale, 
+					  W.dist.option = 'GAMMA', W.para.interval = c(0.1, 10)){
+	
+		SU <- U * S2p
+		SL <- L * S2p
+		
+		if (W.dist.option == 'GAMMA') {
+		
+			A <- pgamma(SU, shape = W.rgamma.shape, scale = W.rgamma.scale) - pgamma(SL, shape = W.rgamma.shape, scale = W.rgamma.scale)
+		
+		} else if (W.dist.option == 'WEIBULL'){
+		
+			kappa <- kappa.f(n, W.para.interval)
+			lambda <- lambda.f(n, kappa)
+			
+			A <- pweibull(SU, shape = kappa, scale = lambda) - pweibull(SL, shape = kappa, scale = lambda)
+		
+		} else if (W.dist.option == 'LOGNORMAL'){
+		
+			pars <- logsigma2.f(n, W.para.interval)
+			
+			A <- plnorm(SU, meanlog = pars[1], sdlog = sqrt(pars[2])) - plnorm(SL, meanlog = pars[1], sdlog = sqrt(pars[2]))
+		
+		}
+		
+		return(mean(A >= 1 - nom.alpha))
+		
+	}
+	
+#########################################################################################################################################################################
+
+	w.values <- matrix(rgamma(m * sim.gamma, shape = Y.rgamma.shape, scale = Y.rgamma.scale), nrow = m, ncol = sim.gamma)
+	
+	w.cube.root <- w.values ^ (1/3)
+	
+	S2 <- w.values #/ (n - 1)
+
+	S2p <- colMeans(S2)
+	
+	L <- NA
+	U <- NA
+	cc <- NA
+											
+	if (method.option == 'EXACT'){
+			
+		limits <- EX.find_alpha_star(m = m,n = n,alpha = nom.alpha,nom_gamma = nom.gamma)
+		
+		#EX.find_alpha_star(m = 250,n = 5,alpha = 0.1,nom_gamma = 0.9)
+		
+		L <- rep(limits[2], sim.gamma)
+		U <- rep(limits[3], sim.gamma)
+				
+	} else if (method.option == 'CE'){
+				
+		limits <- CE.find_alpha_star(m = m,n = n,alpha = nom.alpha, gamma = nom.gamma)
+		
+		L <- rep(limits[2], sim.gamma)
+		U <- rep(limits[3], sim.gamma)
+			
+	} else if (method.option == 'KMM') {
+		
+		cc <- K.factor(n = m, f = NULL, alpha = 1 - nom.gamma, P = 1 - nom.alpha, side = 2, method = 'EXACT', m = 50)
+		
+		limits <- lapply(1:sim.gamma, function(x) {
+				
+			L <- max(((mean(w.cube.root[, x]) - (cc * sd(w.cube.root[, x])))^3) / mean(w.values[, x]), 0)
+				
+			U <- ((mean(w.cube.root[, x]) + (cc * sd(w.cube.root[, x])))^3) / mean(w.values[, x])
+			
+			c(L, U)
+				
+		})
+			
+		for (ii in 1:sim.gamma){
+			
+			L[ii] <- limits[[ii]][1]
+			U[ii] <- limits[[ii]][2]
+			
+		}
+		
+	}
+	
+	inner.loop.f(S2p, L = L, U = U, nom.alpha = nom.alpha, W.rgamma.shape = W.rgamma.shape, W.rgamma.scale = W.rgamma.scale, 
+					  W.dist.option = W.dist.option, W.para.interval = W.para.interval)
+					  
+
+}
+
+gamma.sim <- function(nom.alpha = 0.1, nom.gamma = 0.9, m = 20, n = 5, sim = 1000, sim.gamma = 1000, method.option = 'KMM', 
+					  Y.rgamma.shape = (n - 1) / 2, Y.rgamma.scale = 2, W.rgamma.shape = Y.rgamma.shape, W.rgamma.scale = Y.rgamma.scale, 
+					  W.dist.option = 'GAMMA', W.para.interval = c(0.1, 10), core = 2){
+					  
+					  
+	gamma.f(nom.alpha = nom.alpha, nom.gamma = nom.gamma, m = m, n = n, sim = sim, sim.gamma = sim.gamma, method.option = method.option, 
+					  Y.rgamma.shape = Y.rgamma.shape, Y.rgamma.scale = Y.rgamma.scale, W.rgamma.shape =  W.rgamma.shape, W.rgamma.scale = W.rgamma.scale, 
+					  W.dist.option = W.dist.option, W.para.interval = W.para.interval)
+					  
+}
+
+#debug(gamma.sim.f)
+
+gamma.sim.f(nom.alpha = 0.1, nom.gamma = 0.9, m = 20, n = 5, sim = 1000, sim.gamma = 1000, method.option = 'KMM')
+
+
+#########################################################################################################################################################################
+
+
+#########################################################################################################################################################################
+
